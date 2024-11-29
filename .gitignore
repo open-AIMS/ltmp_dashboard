@@ -1,0 +1,7 @@
+*~
+*#
+*.log
+*.bak
+data
+!data/spatial
+output
