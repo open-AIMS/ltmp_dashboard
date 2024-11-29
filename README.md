@@ -12,9 +12,25 @@ This repository represents the R backend to the dashboard.
 root
 |-Dockerfile
 |-README.md
+|-data
+| |-Shapefiles
+| | |-Features
+| | |-LTMP
+| | |-Great Barrier Reef Marine Park Boundary
+| | |-GBR_AIMS_Reef_Database_v5_11_subreeflab_convex_v3
+| | |-MarineWaterBodiesV2_4
+| | |-NRM_Marine Regions
+| |-bioregions.RData
+| |-domain.list.RData
+| |-gbr_3Zone.RData
+| |-nrm.RData
+| |-reefs.RData
+| |-sectors.RData
+| |-spatial.sf.RData
+| |-waterbodies.RData
 |-R
 |  |-00_main.R
-|  |-LTMP_config.R
+|  |-ltmp_startup_functions.R
 
 ```
 ## Running scripts
