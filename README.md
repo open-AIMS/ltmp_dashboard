@@ -42,6 +42,8 @@ root
 | |-ltmp_manta_cover_load_data.R
 | |-ltmp_manta_cover_process_data.R
 | |-ltmp_manta_cover_fit_models.R
+| |-process_db_extract.R
+| |-run_models.R
 
 ```
 ## Running scripts
