@@ -24,10 +24,13 @@ be used to source a series of child scripts. The majority of the time,
 only the parent scripts will be run.
 
 The scripts should be run via the `Rscripts` command and with
-commandline arguments of the following form:
+commandline arguments of the following form (note, I have included
+linebreaks in the following to aid readability in this readme - do not
+included them when constructing a call to R):
 
 `Rscript 00_main.R <s3 address>/<DATA_METHOD>/<DATE>/process/<DATA_PROGRAM>/<YEAR>/<CRUISE_CODE>/
-<DOMAIN_CATEGORY>/<DOMAIN_NAME>/raw/<filename>.csv --method=<DATA_METHOD> --domain=<DOMAIN_NAME> --scale=<DOMAIN_CATEGORY> --status=<true|false> --refresh_data=<true|false>`
+<DOMAIN_CATEGORY>/<DOMAIN_NAME>/raw/<filename>.csv --method=<DATA_METHOD> --domain=<DOMAIN_NAME> 
+--scale=<DOMAIN_CATEGORY> --status=<true|false> --refresh_data=<true|false>`
 
 `
 where:
