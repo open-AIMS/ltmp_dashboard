@@ -29,8 +29,19 @@ root
 | |-spatial.sf.RData
 | |-waterbodies.RData
 |-R
-|  |-00_main.R
-|  |-ltmp_startup_functions.R
+| |-00_main.R
+| |-ltmp_startup_functions.R
+| |-ltmp_load_functions.R
+| |-ltmp_process_functions.R
+| |-ltmp_model_functions.R
+| |-ltmp_pt_cover.R
+| |-ltmp_pt_cover_load_data.R
+| |-ltmp_pt_cover_process_data.R
+| |-ltmp_pt_cover_fit_models.R
+| |-ltmp_manta_cover.R
+| |-ltmp_manta_cover_load_data.R
+| |-ltmp_manta_cover_process_data.R
+| |-ltmp_manta_cover_fit_models.R
 
 ```
 ## Running scripts
