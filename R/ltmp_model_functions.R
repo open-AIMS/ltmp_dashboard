@@ -65,7 +65,6 @@ ltmp_analysis_splits <- function(data) {
                                       data_scale <- ..1
                                       data <- ..2
                                       VARIABLE <- ..3
-                                      data_type <- status::get_setting(element = "data_method")
                                       if (data_scale == 'reef') {
                                         splits <- list(
                                           VARIABLE = VARIABLE,
@@ -90,7 +89,6 @@ ltmp_analysis_splits <- function(data) {
                                         )
                                       }
                                       if (data_scale == "GBR") splits$SPLIT_SHELF <- FALSE
-                                      if (data_scale == "Sectors" & data_type == "manta") splits$SPLIT_SHELF <- FALSE
                                       if (data |> pull(fGROUP) |> unique() |> length() == 1) splits$MODEL_GROUPS=FALSE
                                       if (data |> pull(REEF_ZONE) |> unique() |> length() == 1) splits$MODEL_REEF_ZONE=FALSE
                                       if (data |> pull(fDEPTH) |> unique() |> length() == 1) splits$MODEL_DEPTH=FALSE
@@ -574,12 +572,37 @@ get_model_posteriors <- function(mod_str, data.group) {
     arrange(desc(YearComp))
   saveRDS(yearcomp_sum, file = gsub("posteriors", "sum", yearcomp_posteriors_label))
 
+  ## all year comparisons
+  all_yearcomp_posteriors <- get_all_yearcomp_posteriors(newdata, year_posteriors)
+  all_yearcomp_posteriors_label <- gsub(".rds$", "_all_yearcomp_posteriors.rds", mod_str)
+  saveRDS(all_yearcomp_posteriors, file = all_yearcomp_posteriors_label)
+
+  all_yearcomp_sum <- all_yearcomp_posteriors |>
+    ungroup() |>
+    group_by(YearComp) |>
+    dplyr::select(-.draw) |>
+    summarise_draws(mean, median, HDInterval::hdi,
+                    pl1 = ~ mean(.x < 0),
+                    pl2 = ~ mean(.x < 1),
+                    pg1 = ~ mean(.x > 0),
+                    pg2 = ~ mean(.x > 1)
+                    ) |>
+    ungroup() |>
+    mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
+    mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
+    dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
+    arrange(desc(YearComp))
+  saveRDS(all_yearcomp_sum, file = gsub("posteriors", "sum", all_yearcomp_posteriors_label))
+
   return(list(year_group_posteriors = year_group_posteriors_label, #year_group_posteriors,
          year_group_sum = year_group_sum,
          year_posteriors = year_posteriors_label, #year_posteriors,
          year_sum = year_sum,
          yearcomp_posteriors = yearcomp_posteriors_label, #yearcomp_posteriors,
-         yearcomp_sum = yearcomp_sum)
+         yearcomp_sum = yearcomp_sum,
+         all_yearcomp_posteriors = all_yearcomp_posteriors_label, #all_yearcomp_posteriors,
+         all_yearcomp_sum = all_yearcomp_sum
+         )
   )
 }
 get_year_group_posteriors <- function(newdata, cellmeans, replace_0) {
@@ -647,6 +670,28 @@ get_yearcomp_posteriors <- function(newdata, year_posteriors) {
       dplyr::select(YearComp, .draw, value, frac) 
   }
   return(yearcomp_posteriors)
+}
+get_all_yearcomp_posteriors <- function(newdata, year_posteriors) {
+  years <- levels(newdata$fYEAR)
+  xmat <- emmeans:::tukey.emmc(years)
+  if (length(years) == 0) {
+    all_yearcomp_posteriors <- newdata %>%
+      tidyr::expand(fYEAR) %>%
+      rename(YearComp = fYEAR) %>%
+      mutate(variable = c("value","frac"), mean = NA, median = NA,
+             lower = NA, upper = NA, Pl = NA, Pg = NA)
+  } else {
+    all_yearcomp_posteriors <-  year_posteriors |>
+      group_by(.draw) |>
+      ## reframe(
+      summarise(
+        frac = exp(as.vector(as.vector(log(value)) %*% as.matrix(xmat))),
+        value = as.vector(as.vector(value) %*% as.matrix(xmat)),
+        YearComp = names(xmat)
+        ) |>
+      dplyr::select(YearComp, .draw, value, frac) 
+  }
+  return(all_yearcomp_posteriors)
 }
 mean_median_hdci <- function(.data, ...) {
   ## groups = group_vars(.data)

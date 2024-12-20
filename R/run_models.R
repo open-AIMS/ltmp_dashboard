@@ -36,6 +36,8 @@ print(domain)
     ## file.append(file1 = old_log_file, file2 = out_log_file)
 print(out_log_file)
 
+if (1 == 1 ) {
+  
 ## cmd <- paste0("docker",
 ##               args = c(
 ##                 "run",
@@ -263,3 +265,5 @@ if (data_type == "manta" & data_scale == "nrm") {
 
 
 
+
+}

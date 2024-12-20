@@ -163,6 +163,17 @@ args <- commandArgs()
 ##   "R",
 ##   "Rscript",
 ##   "--file=manta_cover.R",                            ##the name of the target script
+##   "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/Carter Reef/raw/reef_data.zip",
+##   "--method=manta",
+##   "--domain=Carter Reef",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=manta_cover.R",                            ##the name of the target script
 ##   "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/Briggs Reef/raw/reef_data.zip",
 ##   "--method=manta",
 ##   "--domain=Briggs Reef",
