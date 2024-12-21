@@ -1,6 +1,7 @@
 ## Functions =========================================================
 
 ## Extract the "models" table data
+
 get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   data <- 1
@@ -10,9 +11,15 @@ get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
     ## dplyr::select(data_type, data_scale, domain_name, contains("_hash"))
   if (!is.null(method)) {
     data <- data |> 
-    filter(data_type == method,
-           data_scale == scale,
-           domain_name %in% domain)
+    filter(data_type == method)
+  }
+  if (!is.null(scale)) {
+    data <- data |> 
+    filter(data_scale == scale)
+  }
+  if (!is.null(domain)) {
+    data <- data |> 
+    filter(domain_name %in% domain)
   }
   dbDisconnect(con)
   return(data)
