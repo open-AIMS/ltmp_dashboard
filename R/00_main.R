@@ -14,7 +14,7 @@
 ##3. set wd to /home/Project/R
 setwd("/home/Project/R")
 
-remotes::install_github('open-AIMS/status', ref = 'adapt', force = TRUE)
+##remotes::install_github('open-AIMS/status', ref = 'adapt', force = TRUE)
 
 
 ## Remove the following and replace with pulling from a repo
