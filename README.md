@@ -44,6 +44,7 @@ root
 | |-ltmp_manta_cover_fit_models.R
 | |-process_db_extract.R
 | |-run_models.R
+| |-batch.R
 
 ```
 ## Running scripts
@@ -154,3 +155,46 @@ Only when running as a parent, will various starting routines (such as
 loading of libraries, reading commandline arguments and ensuring the
 directory structure is present) take place.
 
+## Other ways to run scripts
+
+There is also an R script called `batch.R`. This script provides an
+alternative pathway to obtain, process and fit models. Specifically,
+when run from within AIMS firewall, it is able to extract the data
+directly from the AIMS Oracle database before processing these data
+into a local structure that resembles the form delivered as an AWS
+bucket in the regular pipeline outlined above.
+
+As the name of this script (`batch.R`) suggests, this script is
+capable of running multiple things at once. For example, it could be
+instructed to re-run all photo-transect reefs, or a select set of
+Manta sectors etc.
+
+Here are some examples of its use.
+
+- example 1, all manta tow data
+  - extract manta tow data from the Oracle database
+
+```
+Rscript batch.R --purpose=sql --method=manta --log=../../data/dashboard.log
+```
+
+- example 2, all manta tow data with Townsville sector level reporting
+  - extract manta tow data from the Oracle database
+  - post-process the extraction to make it consistent with that provided in AWS buckets
+  - prepare the data into the same folder structure as that provided in AWS buckets
+  - fit the manta tow sector model for the Towsville sector
+
+```
+
+Rscript batch.R --purpose=sql,post-process,prepare,fit --method=manta --scale=sector --domain=TO --log=../../data/dashboard.log
+```
+
+- example 3, all manta tow data with sector level reporting
+  - extract manta tow data from the Oracle database
+  - post-process the extraction to make it consistent with that provided in AWS buckets
+  - prepare the data into the same folder structure as that provided in AWS buckets
+  - fit the manta tow sector model for all sectors
+
+```
+Rscript batch.R --purpose=sql,post-process,prepare,fit --method=manta --scale=sector --domain=NULL --log=../../data/dashboard.log
+```
