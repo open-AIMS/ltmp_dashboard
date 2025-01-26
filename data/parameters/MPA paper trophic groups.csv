@@ -1,0 +1,229 @@
+FISH_CODE,Trophic
+ACA.ALBI,Planktivores
+ACA.AURA,Croppers
+ACA.BLOC,Detritivores
+ACA.DUSS,Detritivores
+ACA.GRAM,Detritivores
+ACA.LINE,Farmers
+ACA.MATA,Planktivores
+ACA.NANS,Croppers
+ACA.NCUS,Croppers
+ACA.NUDA,Croppers
+ACA.OLIV,Detritivores
+ACA.PYRO,Croppers
+ACA.THOM,Planktivores
+ACA.TRIO,Croppers
+ACA.XANT,Detritivores
+CTE.BINO,Detritivores
+CTE.STRI,Detritivores
+CTE.GROP,Detritivores
+NAS.LITU,Croppers
+NAS.TUBE,Croppers
+NAS.TONG,Croppers
+NAS.UNIC,Croppers
+PCT.HEPA,Planktivores
+ZAN.CORN,Benthic foragers
+ZEB.SCOP,Croppers
+ZEB.VELI,Croppers
+ACN.POLY,Omnivorous Pomacentridae
+AMB.AURE,Planktivores
+AMB.CURA,Omnivorous Pomacentridae
+AMB.LEUC,Omnivorous Pomacentridae
+AMP.AKIN,Omnivorous Pomacentridae
+AMP.CHRY,Omnivorous Pomacentridae
+AMP.CLAR,Omnivorous Pomacentridae
+AMP.MELA,Omnivorous Pomacentridae
+AMP.PERC,Omnivorous Pomacentridae
+AMP.PERI,Omnivorous Pomacentridae
+CHR.ALIS,Planktivores
+CHR.ACAR,Planktivores
+CHR.AGIL,Planktivores
+CHR.AMBO,Planktivores
+CHR.APES,Planktivores
+CHR.CHRY,Planktivores
+CHR.IOME,Planktivores
+CHR.LEPI,Planktivores
+CHR.LINE,Planktivores
+CHR.MARG,Planktivores
+CHR.NITI,Planktivores
+CHR.RETR,Planktivores
+CHR.TERN,Planktivores
+CHR.VAND,Planktivores
+CHR.WEBE,Planktivores
+CHR.XANT,Planktivores
+CHR.XANC,Planktivores
+CHY.FLAV,Planktivores
+CHY.REX,Omnivorous Pomacentridae
+CHY.ROLL,Planktivores
+CHY.TALB,Planktivores
+DAS.ARUA,Planktivores
+DAS.MELA,Planktivores
+DAS.RETI,Planktivores
+DAS.TRIM,Planktivores
+DIS.MELA,Farmers
+DIS.PERS,Farmers
+DIS.PROS,Farmers
+DIS.PSEU,Farmers
+HGY.PLAG,Farmers
+NEG.MELA,Omnivorous Pomacentridae
+NEG.NIGR,Farmers
+NEG.POLY,Planktivores
+NEO.AZYS,Planktivores
+NEO.BANK,Planktivores
+NEO.CYAN,Planktivores
+PCH.RICH,Planktivores
+PGY.DICK,Farmers
+PGY.JOHN,Farmers
+PGY.LACR,Farmers
+POM.ADEL,Farmers
+POM.AMBO,Omnivorous Pomacentridae
+POM.AUST,Omnivorous Pomacentridae
+POM.BANK,Farmers
+POM.BRAC,Omnivorous Pomacentridae
+POM.CHRY,Farmers
+POM.COEL,Planktivores
+POM.GRAM,Farmers
+POM.LEPI,Planktivores
+POM.MOLU,Omnivorous Pomacentridae
+POM.NAGA,Omnivorous Pomacentridae
+POM.PHIL,Planktivores
+POM.VAIU,Farmers
+POM.WARD,Farmers
+PRE.BIAC,Omnivorous Pomacentridae
+STE.APIC,Farmers
+STE.FASC,Farmers
+STE.GASC,Farmers
+STE.NIGR,Farmers
+BOL.MURI,Excavators
+CAL.CARO,Scrapers
+CET.BICO,Excavators
+CET.OCEL,Excavators
+CHS.BLEE,Excavators
+CHS.FRON,Excavators
+CHS.JAPA,Excavators
+CHS.MICR,Excavators
+CHS.SORD,Excavators
+HIP.LONG,Excavators
+SCA.ALTI,Scrapers
+SCA.CHAM,Scrapers
+SCA.DIMI,Scrapers
+SCA.FLAV,Scrapers
+SCA.FORS,Scrapers
+SCA.FREN,Scrapers
+SCA.GHOB,Scrapers
+SCA.GLOB,Scrapers
+SCA.LONG,Scrapers
+SCA.NIGR,Scrapers
+SCA.OVIC,Scrapers
+SCA.PSIT,Scrapers
+SCA.RIVU,Scrapers
+SCA.RUBR,Scrapers
+SCA.SCHL,Scrapers
+SCA.SPIN,Scrapers
+CHA.AFAS,Obligate corallivores
+CHA.AURI,Benthic foragers
+CHA.BARO,Obligate corallivores
+CHA.BENN,Obligate corallivores
+CHA.CITR,Benthic foragers
+CHA.EPHI,Benthic foragers
+CHA.FLAV,Benthic foragers
+CHA.KLEI,Benthic foragers
+CHA.LINE,Benthic foragers
+CHA.LUNU,Benthic foragers
+CHA.MELO,Benthic foragers
+CHA.MERT,Benthic foragers
+CHA.MEYE,Obligate corallivores
+CHA.ORNA,Obligate corallivores
+CHA.PELW,Obligate corallivores
+CHA.PLEB,Obligate corallivores
+CHA.PUNC,Obligate corallivores
+CHA.RAFF,Benthic foragers
+CHA.RAIN,Obligate corallivores
+CHA.RETI,Obligate corallivores
+CHA.SPEC,Benthic foragers
+CHA.TLIS,Obligate corallivores
+CHA.TTUS,Obligate corallivores
+CHA.LUNS,Obligate corallivores
+CHA.ULIE,Benthic foragers
+CHA.UNIM,Benthic foragers
+CHA.VAGA,Benthic foragers
+CHM.ROST,Benthic foragers
+FOR.FLAV,Benthic foragers
+FOR.LONG,Benthic foragers
+HYS.POLY,Planktivores
+CHE.FASC,Secondary targets
+CHE.UNDU,Benthic foragers
+CHO.FASC,Secondary targets
+COR.GAIM,Benthic foragers
+EPB.INSI,Benthic foragers
+GOM.VARI,Benthic foragers
+HAL.HORT,Benthic foragers
+HEM.FASC,Benthic foragers
+HEM.MELT,Benthic foragers
+CRO.ALTI,Secondary targets
+ANY.LEUC,Secondary targets
+CEP.ARGU,Secondary targets
+CEP.BOEN,Secondary targets
+CEP.CYAN,Secondary targets
+CEP.MICR,Secondary targets
+CEP.MINI,Secondary targets
+CEP.UROD,Secondary targets
+EPI.CAER,Secondary targets
+EPI.COIO,Secondary targets
+EPI.CYAN,Secondary targets
+EPI.FASC,Secondary targets
+EPI.FUSG,Secondary targets
+EPI.LANC,Secondary targets
+EPI.MACR,Secondary targets
+EPI.MERR,Secondary targets
+EPI.ONGU,Secondary targets
+EPI.QUOY,Secondary targets
+EPI.SPIL,Secondary targets
+EPI.TAUV,Secondary targets
+EPI.UNDU,Secondary targets
+GNA.AURO,Secondary targets
+LET.ATKI,Secondary targets
+LET.ERUS,Secondary targets
+LET.ERYT,Secondary targets
+LET.HARA,Secondary targets
+LET.MINI,Secondary targets
+LET.NEBU,Secondary targets
+LET.OBSO,Secondary targets
+LET.OLIV,Secondary targets
+LET.ORNA,Secondary targets
+LET.RUBR,Secondary targets
+LET.XANT,Secondary targets
+MON.GRAN,Secondary targets
+LUT.ADET,Secondary targets
+LUT.ARGE,Secondary targets
+LUT.BOHA,Secondary targets
+LUT.CARP,Secondary targets
+LUT.FLMA,Secondary targets
+LUT.FULV,Secondary targets
+LUT.GIBB,Secondary targets
+LUT.KASM,Secondary targets
+LUT.LEMN,Secondary targets
+LUT.LUTJ,Secondary targets
+LUT.MONO,Secondary targets
+LUT.QUIN,Secondary targets
+LUT.RIVU,Secondary targets
+LUT.RUSS,Secondary targets
+LUT.SEBA,Secondary targets
+LUT.VITT,Secondary targets
+MCR.GROP,Secondary targets
+PMS.AREO,Coral Trout
+PMS.LAEV,Coral Trout
+PMS.LEOP,Coral Trout
+PMS.MACU,Coral Trout
+VAR.LOUT,Coral Trout
+SIG.ARGE,Croppers
+SIG.CANA,Croppers
+SIG.CORA,Croppers
+SIG.DOLI,Croppers
+SIG.FUSC,Croppers
+SIG.JAVU,Croppers
+SIG.LINE,Croppers
+SIG.PMUS,Croppers
+SIG.PTUS,Croppers
+SIG.PUEL,Croppers
+SIG.VULP,Croppers
