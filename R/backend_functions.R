@@ -2,6 +2,214 @@
 
 ## Extract the "models" table data
 
+## create a database table out of the extracted data
+create_db_table_from_extract <- function(db_path, data_type, csv_file) {
+  out <- system(sprintf("sqlite3 %s 'DROP TABLE IF EXISTS \"%s\"';",
+                        db_path, data_type),
+                wait = TRUE, intern = TRUE)
+  out <- system(sprintf("sqlite3 %s '.mode csv' '.headers on' '.import \"%s\" \"%s\"';",
+                        db_path, csv_file, data_type),
+                wait = TRUE, intern = TRUE)
+}
+
+create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
+  if (data_type == "photo-transect") {
+    out2 <- system(paste0(
+      "cut -d, -f17,6,28,9 < ", csv_file, " | uniq |
+    Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
+    input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
+    group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
+    summarise(SURVEY_DATE=max(SURVEY_DATE));
+    write.csv(input, row.names=FALSE)\"
+    "
+    ),
+    intern = TRUE)
+  }
+  if (data_type == "manta") {
+    out2 <- system(paste0(
+      "cut -d, -f5,6,10,15 < ", csv_file, " | uniq |
+    Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
+    input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
+    group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
+    summarise(SURVEY_DATE=max(SURVEY_DATE));
+    write.csv(input, row.names=FALSE)\"
+    "
+    ),
+    intern = TRUE)
+  }
+  if (data_type == "fish") {
+    out2 <- system(paste0(
+      "cut -d, -f7,9,20,29 < ", csv_file, " | uniq |
+    Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
+    input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
+    group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
+    summarise(SURVEY_DATE=max(SURVEY_DATE));
+    write.csv(input, row.names=FALSE)\"
+    "
+    ),
+    intern = TRUE)
+  }
+  con <- dbConnect(RSQLite::SQLite(), config_$db_path)
+  ## dbWriteTable(con, paste0(data_type, "_sum1"), out2, overwrite = TRUE)
+  data_info <- file.mtime(csv_file)
+  data <- as.data.frame(out2) |> 
+    slice(-1)  |> 
+    separate(everything(),
+             into = c("nrm", "sector", "reef", "survey_date"), sep = ",")  |>
+    mutate(## reef = str_replace_all(reef, '"', ""),
+           across(everything(), ~ str_replace_all(.x, '"', "")),
+           survey_date = as.POSIXct(survey_date, "%Y-%m-%d %H:%M:%S", tz = "Australia/Brisbane"),
+           ## extraction_date = format(data_info, "%Y-%m-%d %H:%M:%S"))
+           extraction_date = data_info)
+  ## print(head(data))
+  dbWriteTable(con, paste0(data_type, "_sum"), data, overwrite = TRUE)
+  dbDisconnect(con)
+}
+
+## retrieve the first 20 rows of a database raw data table
+make_dashboard_data <- function(method, scale) {
+  data <- tibble("Blank")
+  con <- dbConnect(RSQLite::SQLite(), config_$db_path)
+  tbls <- dbListTables(con) 
+  if (method %in% tbls) {
+    data <- tbl(con, method) |>
+      head(20) |>
+      collect()
+  }
+  dbDisconnect(con)
+ return(data) 
+}
+
+
+make_dashboard_summary <- function(method, scale) {
+  data <- tibble("Blank")
+  con <- dbConnect(RSQLite::SQLite(), config_$db_path)
+  tbls <- dbListTables(con) 
+  if (scale %in% c("reef", "sql") &
+      paste0(method, "_sum") %in% tbls) {
+    if (scale == "sql") {
+      db_tbl <- paste0(method, "_sum")
+      data <- tbl(con, db_tbl) 
+      ## sector
+      if (paste0(method, "_sector_sum") %in% tbls) {
+        data <- data |>
+          left_join(
+            tbl(con, paste0(method, "_sector_sum")) |>
+            dplyr::select(domain_name, extract_data_hash) |>
+            distinct(),
+            by = c("sector" = "domain_name")) |> 
+          dplyr::rename(sector_extract_data_hash = extract_data_hash) |> 
+           left_join(tbl(con, "models") |>
+                     filter(data_type == method,
+                            data_scale == "sector") |> 
+                     select(domain_name, sector_model_date = model_date,
+                            sector_model_data_hash),
+                    by = c("sector" = "domain_name")) 
+        ## ttt <- tbl(con, "models") |> collect()
+        ## alert(head(ttt$model_date))
+        ## alert(colnames(data))
+        ## alert("here")
+      }
+      ## nrm
+      if (paste0(method, "_nrm_sum") %in% tbls) {
+        data <- data |>
+          left_join(
+            tbl(con, paste0(method, "_nrm_sum")) |>
+            dplyr::select(domain_name, extract_data_hash) |>
+            distinct(),
+            by = c("nrm" = "domain_name")) |> 
+          dplyr::rename(nrm_extract_data_hash = extract_data_hash) |> 
+          left_join(tbl(con, "models") |>
+                    filter(data_type == method,
+                           data_scale == "nrm") |> 
+                    select(domain_name, nrm_model_date = model_date,
+                           nrm_model_data_hash),
+                    by = c("nrm" = "domain_name"))
+      }
+      ## reef
+      if (paste0(method, "_reef_sum") %in% tbls) {
+        data <- data |>
+          left_join(
+            tbl(con, paste0(method, "_reef_sum")) |>
+            dplyr::select(domain_name, extract_data_hash) |>
+            distinct(),
+            by = c("reef" = "domain_name")) |> 
+          dplyr::rename(reef_extract_data_hash = extract_data_hash) |> 
+          left_join(tbl(con, "models") |>
+                    filter(data_type == method,
+                           data_scale == "reef") |> 
+                    select(domain_name, reef_model_date = model_date,
+                           reef_model_data_hash),
+                    by = c("reef" = "domain_name"))
+      }
+      data <- data |> 
+        collect() |>
+        distinct()
+    } else if (paste0(method, "_sum") %in% tbls &
+               paste0(method, "_reef_sum") %in% tbls) { ## e.g. it is "reef"
+      db_tbl <- paste0(method, "_sum")
+      data <- tbl(con, db_tbl) |>
+        dplyr::select(-nrm, -sector) |> 
+        left_join(
+          tbl(con, paste0(method, "_reef_sum")) |>
+          dplyr::select(domain_name, extract_data_hash) |>
+          distinct(),
+          by = c("reef" = "domain_name")) |> 
+        dplyr::rename(reef_extract_data_hash = extract_data_hash) |> 
+        left_join(tbl(con, "models") |>
+                  filter(data_type == method,
+                         data_scale == "reef") |> 
+                  select(domain_name, reef_model_date = model_date,
+                         reef_model_data_hash),
+                  by = c("reef" = "domain_name")) |> 
+        collect() |>
+        distinct()
+    }
+  } else if (paste0(method, "_sum") %in% tbls &
+               paste0(method, "_", scale, "_sum") %in% tbls){
+    scales_to_remove <- case_when(
+      scale == "reef" ~ c("sector", "nrm"),
+      scale == "sector" ~ c("reef", "nrm"),
+      scale == "nrm" ~ c("reef", "sector")
+    ) 
+    db_tbl <- paste0(method, "_sum")
+    data <- tbl(con, db_tbl) |> 
+      dplyr::select(-all_of(scales_to_remove)) |> 
+      dplyr::group_by(!!sym(scale)) |>
+      summarise(survey_date = max(survey_date),
+                extraction_date = min(extraction_date)) |> 
+      dplyr::ungroup() |> 
+        left_join(
+          tbl(con, paste0(method, "_", scale, "_sum")) |>
+          dplyr::select(domain_name, extract_data_hash) |>
+          distinct(),
+          by = setNames("domain_name", scale)) |> 
+        dplyr::rename(setNames("extract_data_hash", paste0(scale, "_extract_data_hash"))) |> 
+        left_join(tbl(con, "models") |>
+                  filter(data_type == method,
+                         data_scale == scale) |> 
+                  select(domain_name,
+                         !!sym(paste0(scale, "_model_date")) := model_date,
+                         paste0(scale, "_model_data_hash")),
+          by = setNames("domain_name", scale)) |> 
+        collect() |>
+        distinct()
+  }
+  if (!is.null(data)) {
+    ## alert(length(data$sector_model_date))
+    ## alert(colnames(data))
+    ## alert(data[88,])
+    write_csv(data, file = "/home/mlogan/data/test.csv")
+    ## alert(as.POSIXct(data$sector_model_date[11:20]))
+    data <- data |>
+      ## slice(70:80) |> 
+      mutate(across(ends_with("date"), as.POSIXct))
+  }
+  dbDisconnect(con)
+  return(data) 
+}
+
+## Retrieve data from database models table
 get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   data <- 1
@@ -54,7 +262,7 @@ update_db_models <- function() {
                                                 "reef_zone", "depth",
                                                 "shelf"),
                                   sep = "_") |>
-                         mutate(model_date = format(mtime, "%Y-%m-%d %H:%M:%S"),
+                         mutate(model_date = mtime, #format(mtime, "%Y-%m-%d %H:%M:%S"),
                                 ## model_path = .x,
                                 reef_model_data_hash = "",
                                 sector_model_data_hash = "",
@@ -116,11 +324,14 @@ make_data_hash <- function(method, scale, domain) {
 get_db_summary_table <- function(method, scale) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   tbls <- dbListTables(con) 
-  if (scale == "reef") {
-    db_sum_tbl <- paste0(method, "_sum")
-  } else {
+  ## if (scale == "reef") {
+  ##   db_sum_tbl <- paste0(method, "_sum")
+  ## } else {
     db_sum_tbl <- paste0(method, "_", scale, "_sum")
-  }
+  ## }
+  ## print(config_$db_path)
+  ## print(db_sum_tbl)
+  ## print(tbls)
   if (db_sum_tbl %in% tbls) {
     tb <- tbl(con, db_sum_tbl) |>
       collect() 
@@ -136,11 +347,6 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
   data_hashes <- make_data_hash(method = method, scale = scale, domain = NULL) |>
     dplyr::rename("extract_data_hash" = "model_data_hash",
                   "extract_data_path" = "path")
-  if (scale == "reef") {
-    db_sum_tbl <- paste0(method, "_sum")
-  } else {
-    db_sum_tbl <- paste0(method, "_", scale, "_sum")
-  }
   tb <- get_db_summary_table(method = method, scale = scale)
   if (!is.null(tb)) {
    tb <- tb |> 
@@ -151,6 +357,11 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
     tb <- data_hashes
   }
   
+  ## if (scale == "reef") {
+  ##   db_sum_tbl <- paste0(method, "_sum")
+  ## } else {
+    db_sum_tbl <- paste0(method, "_", scale, "_sum")
+  ## }
   ## con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   ## tbls <- dbListTables(con) 
   ## if (scale == "reef") {
@@ -189,11 +400,13 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
   } else data_scale <- NULL
   fls <- list.files(config_$model_path,
                     recursive = TRUE, full.names = TRUE)
+  domain_str <- str_replace(domain, "\\(", "\\\\(") |>
+    str_replace("\\)", "\\\\)")
   fls_wch <- str_detect(basename(fls),
                         paste0(
                                ifelse(is.null(method), "[^_]*_", paste0(method, "_")),
                                ifelse(is.null(data_scale), "[^_]*_", paste0(data_scale, "_")),
-                               ifelse(is.null(domain), "[^_]*", paste0("(",paste0(domain, collapse = "|"), ")")),
+                               ifelse(is.null(domain_str), "[^_]*", paste0("(",paste0(domain_str, collapse = "|"), ")")),
                                "\\.rds$"))
   ## write.csv(fls_wch, file = "../data/temp2.csv")
   models <- tibble(path = unique(fls[fls_wch])) |> 
@@ -210,15 +423,15 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
                                                 "reef_zone", "depth",
                                                 "shelf"),
                                   sep = "_") |>
-                         mutate(model_date = format(mtime, "%Y-%m-%d %H:%M:%S"),
-                                ## model_path = .x,
+                         mutate(model_date = as.POSIXct(format(mtime, "%Y-%m-%d %H:%M:%S")),#mtime, #format(mtime, "%Y-%m-%d %H:%M:%S"),
+                                model_path = .x,
                                 reef_model_data_hash = "",
                                 sector_model_data_hash = "",
                                 nrm_model_data_hash = "") |> 
                          as.data.frame()
                      })) |>
     unnest(c(mod)) |>
-    dplyr::rename(model_path = path) |> 
+    ## dplyr::rename(model_path = path) |> 
     mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale))
   models
 }
@@ -234,14 +447,26 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   if (!does_db_table_exist("models")) {
     models_db <- update_db_models()
   }
+  ## domain_str <- str_replace(domain, "\\(", "\\\\(") |>
+  ##   str_replace("\\)", "\\\\)")
   ## get the current model db table
-  models_db <- get_db_model_data()
-  ## if the models database does not have these domain(s) 
-  ## if (nrow(models_db |> filter(data_type == method, data_scale == scale, domain_name %in% domain)) == 0) {
-  models_db <-
-    ## models_db |>
-    ## bind_rows(
-    scan_models_folder(method = method, scale = scale, domain = domain)
+  ## alert(scan_models_folder(method = method,
+  ##                            scale = scale,
+  ##                            domain = domain))
+  ## alert(colnames(scan_models_folder(method = method,
+  ##                            scale = scale,
+  ##                            domain = domain)))
+  ## alert(colnames(get_db_model_data()))
+  models_db <- get_db_model_data() |> 
+    ## remove the focal domains
+    filter(!(data_type == method &
+           data_scale == scale &
+           ## str_detect(domain_name, domain_str))) |> 
+           domain_name %in% domain)) |> 
+    mutate(model_date = as.POSIXct(model_date)) |> 
+    rbind(scan_models_folder(method = method,
+                             scale = scale,
+                             domain = domain))
   ## )
   ## }
   ## get the summary table (to know what all models would be)
@@ -276,18 +501,23 @@ which_models_to_update <- function(method, scale, all = FALSE) {
   ##                         scale == "nrm" ~ "nrm"
   ##                         )
   ## get the full list of domain names from the summmary table
+  ## print(method)
+  ## print(scale)
   all_domains <- get_db_summary_table(method = method, scale = scale) |>
     pull(domain_name) |>
     unique()
+  ## print(all_domains)
   ## get the set of domains that have previously been modelled
   data_hash <- make_data_hash(method = method, scale = scale, domain = NULL) |>
     dplyr::rename(!!sym(paste0(scale, "_model_data_hash")) := "model_data_hash")
+  ## print(data_hash)
   if (all | !does_db_table_exist("models")) {
     domains <- data_hash |> pull(domain_name) |> c(all_domains) |> unique()
   } else {
     ## get the current model db table
     models_db <- get_db_model_data() |>
       dplyr::filter(data_type == method, data_scale == scale)
+    ## print(models_db)
     ## if there is no information on any domains in models
     if(nrow(models_db) == 0) {
       domains <- data_hash |>
@@ -302,7 +532,8 @@ which_models_to_update <- function(method, scale, all = FALSE) {
                   by = c("data_type", "data_scale", "domain_name")) |>
         mutate(across(ends_with(".x"), ~ . == get(sub(".x", ".y", cur_column())),
                       .names = "flag")) |>
-        filter(flag) |>
+        mutate(flag = ifelse(is.na(flag), FALSE, flag)) |> 
+        filter(flag & !is.na(model_date)) |>
         pull(domain_name) |>
         unique()
       if (length(domains) == 0) {

@@ -1,6 +1,9 @@
 library(tidyverse)
 args <- commandArgs()
 
+## Change the umask to allow read/write on files and directories created by this script
+system("umask 0000")
+
 has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
 if(has_method_argument) {
   arg <- args[grep("--method=.*", args)]
@@ -118,9 +121,11 @@ if (data_type == "photo-transect" & purpose == "make_reefs") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
@@ -187,9 +192,11 @@ if (data_type == "photo-transect" & purpose == "make_nrm") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
@@ -251,9 +258,11 @@ if (data_type == "photo-transect" & purpose == "make_sectors") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
@@ -343,9 +352,11 @@ if (data_type == "manta" & purpose == "make_reefs") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
@@ -407,9 +418,11 @@ if (data_type == "manta" & purpose == "make_nrm") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
@@ -473,12 +486,151 @@ if (data_type == "manta" & purpose == "make_sectors") {
         .f =  ~ {
           if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
           write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
           zip(zipfile = paste0(.y, "reef_data.zip"),
               files = paste0(.y, "reef_data.csv"),
               flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
           print(.y)
           write(.y, file = make_log, append = TRUE)
           ## write(dir.exists(.y), file = make_log, append = TRUE)
         })
   cat("Done!\n")
 }
+
+## fish
+
+if (data_type == "fish" & purpose == "post-process") {
+  cat("Start post-processing of fish data\n=============================================\n")
+  cat("Read in extracted data\n")
+  fish <- read_csv(paste0(csv_file)) 
+  cat("Process extracted data\n")
+  fish <- fish |> 
+    mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
+           SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE), 
+           LATITUDE = round(LATITUDE, 6),
+           LONGITUDE = round(LONGITUDE, 6)) |>
+    dplyr::rename(SECTOR = A_SECTOR) |>
+    dplyr::select(P_CODE, CRUISE_CODE, REEF_NAME, AIMS_REEF_NAME,
+                  REEF_ZONE, RAP_REEF_PAIR, RAP_OPEN_CLOSED,
+                  SECTOR, LATITUDE, LONGITUDE, SITE_NO, TRANSECT_NO,
+                  REPORT_YEAR = YEAR, SURVEY_DATE, FAMILY, FISH_CODE, LENGTH,
+                  ABUNDANCE, GENUS, SHELF, NRM_REGION)
+
+  cat("Process extracted fish codes\n")
+  fish_codes <- read_csv(gsub("fish", "fish_codes", csv_file)) |>
+    dplyr::select(FISH_CODE,
+                  FAMILY,
+                  ## TROPHIC_CODE,
+                  ## TROPHIC_GUILD_2021,
+                  GENUS = REALGENUS) |>
+    filter(str_detect(FISH_CODE, "[A-Z]{3}.[A-Z]{3,4}"))
+  ## The AWS data have filled in the zeros.  This makes the data much larger
+  ## yet if it is necessary to include the zeros data, then do the following..
+  ## fish <- fish |>
+  ##   group_by(across(-c("FISH_CODE", "LENGTH", "ABUNDANCE", "FAMILY", "GENUS"))) |>
+  ##   nest() |>
+  ##   mutate(data = map(.x = data,
+  ##                     .f = ~
+  ##                       .x |>
+  ##                       full_join(fish_codes, by = c("FISH_CODE", "FAMILY", "GENUS")) |>
+  ##                       mutate(ABUNDANCE = replace_na(ABUNDANCE, replace = 0)))) |>
+  ##   unnest(data)
+  cat("Save processed data\n")
+  rds_file <- gsub(".csv", ".rds", csv_file)
+  print(rds_file)
+  ## saveRDS(pt, file = paste0(csv_path, '/pt.rds'))
+  saveRDS(fish, file = rds_file)
+  cat("The following is the first 6 rows of the saved data\n")
+  options(width = 200)
+  print(head(as.data.frame(fish)))
+  cat("\nAnd a glimpse of the saved data\n")
+  glimpse(fish)
+  options(width = 80)
+  cat("Done!\n")
+}
+
+if (data_type == "fish" & purpose == "make_reefs") {
+  cat("Start preparing reefs for modelling\n=============================================\n")
+  if (1 == 1) {
+    cat("Read in extracted data\n")
+    fish <- readRDS(file = paste0(rds_file))
+    fish_codes <- read_csv(gsub("fish.rds", "fish_codes.csv", rds_file))
+    cat("Nest data\n")
+    fish_reefs <- fish |>
+      group_by(AIMS_REEF_NAME) |>
+      nest() |>
+      mutate(data = map2(.x = data, .y = AIMS_REEF_NAME,
+                         .f = ~ .x |>
+                           mutate(AIMS_REEF_NAME = .y) |> 
+                           ## fill gaps - this is very slow - is it necessary? ==============
+                           ## group_by(across(-c("FISH_CODE", "LENGTH",
+                           ##                    "ABUNDANCE", "FAMILY", "GENUS"))) |>
+                           ## nest() |>
+                           ## mutate(data = map(.x = data,
+                           ##                   .f = ~
+                           ##                     .x |>
+                           ##                     full_join(fish_codes,
+                           ##                               by = c("FISH_CODE", "FAMILY", "GENUS")) |>
+                           ##                     mutate(ABUNDANCE = replace_na(ABUNDANCE, replace = 0)))) |>
+                           ## unnest(data) |> 
+                           ## ungroup() |> 
+                           ## finish fill gaps =============================================
+                           dplyr::select(P_CODE,
+                                         CRUISE_CODE,
+                                         REEF_NAME,
+                                         AIMS_REEF_NAME,
+                                         REEF_ZONE,
+                                         RAP_REEF_PAIR,
+                                         RAP_OPEN_CLOSED,
+                                         SECTOR,
+                                         LATITUDE, LONGITUDE,
+                                         SITE_NO, TRANSECT_NO,
+                                         REPORT_YEAR,
+                                         SURVEY_DATE,
+                                         FAMILY, FISH_CODE,
+                                         LENGTH, ABUNDANCE,
+                                         GENUS,
+                                         SHELF#,
+                                         ## NRM_REGION
+                                         )
+                         )) |> 
+      mutate(path = map(.x = AIMS_REEF_NAME,
+                        .f =  ~ {
+                          paste0(rds_path, "/fish",
+                                 "/2021-01-14/process/ALL/2024/ALL/reef/",
+                                 .x,
+                                 "/raw/")                       
+                        }
+                        )) |> 
+      mutate(system = map2(.x = AIMS_REEF_NAME, .y = path,
+                           .f =  ~ {
+                             .y <- gsub("\\.\\./\\.\\.", "", .y)
+                             paste0('docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript home/Project/R/00_main.R --path="', .y, 'reef_data.zip"  --method=fish --domain="', .x, '" --scale=reef --status=true --refresh_data=false')
+                           }
+                           ))
+    saveRDS(fish_reefs, file = paste0(rds_path, '/fish_reefs.rds'))
+  }
+  cat("Nest data\n")
+  fish_reefs <- readRDS(file = paste0(rds_path, '/fish_reefs.rds'))
+  print(fish_reefs)
+  print(fish_reefs$path[[1]])
+  ## print(fish_reefs$AIMS_REEF_NAME |> unique())
+  pwalk(.l = list(fish_reefs$data, fish_reefs$path),
+        .f =  ~ {
+          if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
+          write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
+          zip(zipfile = paste0(.y, "reef_data.zip"),
+              files = paste0(.y, "reef_data.csv"),
+              flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
+          print(.y)
+          write(.y, file = make_log, append = TRUE)
+          ## write(dir.exists(.y), file = make_log, append = TRUE)
+        })
+  cat("Done!\n")
+}
+
+## restore umask
+system("umask 0022")

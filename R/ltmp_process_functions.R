@@ -603,3 +603,268 @@ ltmp_calc_percent = function(x) {
     ifelse(x == '5', 0.875,
     ifelse(x == '5L',0.8125,0.9375)))))))))))))))
 }
+
+
+## Fish specific functions
+
+ltmp_load_data_fish <- function() {
+  status::status_try_catch(
+  {
+    load(file=paste0(DATA_PATH, 'primary/', RDATA_FILE))
+    data=data %>% dplyr::rename(REEF=AIMS_REEF_NAME) %>%
+      droplevels() |>
+      suppressMessages() |>
+      suppressWarnings()
+  },
+  stage_ = 3,
+  order_ = 1,
+  name_ = "Load fish data",
+  item_ = "load_data_fish"
+  )
+  return(data)  
+}
+
+ltmp_calc_density_fish <- function(data) {
+  status::status_try_catch(
+  {
+    ## Add trophic group to the data based on a lookup
+    trophic_groups <- read_csv('../data/parameters/MPA paper trophic groups.csv')
+    ## For calculating fish density (and thus biomass per area), we need to
+    ## take into consideration the size of the sampling area.
+    ## For small fishes, the search (sampling area) represented by the
+    ## transect means that we must multiply the abundance by 20
+    ## whereas it is 4 for larger fishes.
+    ## Load lookup that indicates which fish codes are at narrower search areas
+    densities <- read_csv('../data/parameters/density_table.csv')
+    ## For calculating biomass, the following formula is used:
+    ## Density*A*Length^B  where A and B are species specific coefficients
+    ## provided in the following:
+    lw_conv <- read_csv('../data/parameters/L-W co-effs.csv')
+
+    data <- data |>
+      ## filter(ABUNDANCE>0) |>      #remove the taxa that have ABUNDANCE==0
+      left_join(trophic_groups) |>
+      left_join(densities) |>
+      mutate(AREA = ifelse(is.na(AREA), 4, AREA),
+             DENSITY = ABUNDANCE * AREA) |>
+      left_join(lw_conv) |>
+      mutate(BIOMASS = DENSITY * A * LENGTH^B) |>
+      dplyr::select(-AREA, -A, -B) |>
+      suppressMessages() |>
+      suppressWarnings()
+  },
+  stage_ = 3,
+  order_ = 3,
+  name_ = "Calculate density",
+  item_ = "calc_density_fish"
+  )
+  return(data)  
+}
+
+ltmp_lookup_sizes_fish <- function(data) {
+  status::status_try_catch(
+  {
+    lookup_sizes <- data |>
+      mutate(Group = ifelse(FAMILY == "Pomacentridae",
+                            "Damselfishes", "Large fishes"),
+             tempGROUP = ifelse(Group=="Damselfishes", GENUS, FAMILY)) |>
+      group_by(Group, tempGROUP) |>
+      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
+      ungroup() |>
+      group_by(Group) |>
+      arrange(Group,-Sum)  |>
+      mutate(Common = 1:n()) |>
+      mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
+      ungroup() |>
+      dplyr::select(-Sum,-Common)
+  },
+  stage_ = 3,
+  order_ = 4,
+  name_ = "Reference lookup sizes",
+  item_ = "lookup_sizes_fish"
+  )
+  return(lookup_sizes)  
+}
+
+ltmp_lookup_h_fish <- function(data) {
+  status::status_try_catch(
+  {
+    lookup_h <- data |>
+      mutate(Group = ifelse(FAMILY %in%
+                            c("Acanthuridae", "Scarinae", "Siganidae"),
+                            "Herbivores",
+                     ifelse(FAMILY %in%
+                            c("Labridae", "Lethrinidae", "Lutjanidae", "Serranidae"),
+                            "Harvested", "Other")),
+             tempGROUP = ifelse(Group == "Herbivores", as.character(Trophic),
+                         ifelse(Group == "Harvested" & GENUS %in%
+                                c("Plectropomus", "Variola"), "Coral Trout",
+                                FAMILY))
+             ) |>
+      dplyr::filter(Group != "Other") |>
+      group_by(Group, tempGROUP) |>
+      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
+      filter(!is.na(tempGROUP)) |>
+      ## mutate(tempGROUP=ifelse(is.na(tempGROUP), "Other", tempGROUP)) |>
+      ungroup() |>
+      group_by(Group) |>
+      arrange(Group, -Sum) |>
+      mutate(Common = 1:n()) |>
+      mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
+      ungroup() |>
+      dplyr::select(-Sum, -Common)
+
+  },
+  stage_ = 3,
+  order_ = 5,
+  name_ = "Reference lookup herb/harv",
+  item_ = "lookup_h_fish"
+  )
+  return(lookup_h)  
+}
+
+ltmp_process_sizes_fish <- function(data, lookup_sizes) {
+  status::status_try_catch(
+  {
+    ## Start by removing unneeded fields
+    data <- data |>
+      dplyr::select(-matches("^AIMS_REEF_NAME$|^REGION$|^A_SECTOR$|^CRUISE_CODE$|^SECTOR$"))
+    ## Now Fish sizes
+    data_sum <- data |>
+      mutate(Group = ifelse(FAMILY == "Pomacentridae", "Damselfishes",
+                            "Large fishes")) |>
+      mutate(tempGROUP = ifelse(Group=="Damselfishes", GENUS, FAMILY),
+             ## we only want to group the fishes into subgroups if at reef level
+             tempGROUP = if(status_$settings$data_scale$item == "reef") tempGROUP else NA) |>
+      left_join(lookup_sizes, by = c("Group", "tempGROUP")) |>
+      dplyr::select(-tempGROUP) |>
+      group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
+               REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO,
+               Group, fGROUP) |>
+      summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+      ungroup()
+  },
+  stage_ = 3,
+  order_ = 6,
+  name_ = "Process fish sizes",
+  item_ = "process_sizes_fish"
+  )
+  return(data_sum)  
+}
+
+ltmp_process_total_fish <- function(data, data_sum) {
+  status::status_try_catch(
+  {
+    ## Start by removing unneeded fields
+    data <- data |>
+      dplyr::select(-matches("^AIMS_REEF_NAME$|^REGION$|^A_SECTOR$|^CRUISE_CODE$|^SECTOR$"))
+
+    ## Add the total fish group
+    data_sum <- data_sum |>
+      bind_rows(data |>
+                group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE, REPORT_YEAR,
+                         SURVEY_DATE, SITE_NO, TRANSECT_NO, FAMILY) |>
+                summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+                mutate(Group = "Total fishes", fGROUP = FAMILY)) |>
+      dplyr::select(-FAMILY) |>
+      ungroup()
+  },
+  stage_ = 3,
+  order_ = 7,
+  name_ = "Process total fish",
+  item_ = "process_total_fish"
+  )
+  return(data_sum)  
+}
+
+ltmp_process_h_fish <- function(data, lookup_h, data_sum) {
+  status::status_try_catch(
+  {
+    ## Start by removing unneeded fields
+    data <- data |>
+      dplyr::select(-matches("^AIMS_REEF_NAME$|^REGION$|^A_SECTOR$|^CRUISE_CODE$|^SECTOR$"))
+    ## Add the Herbivore and Harvested groups
+    data_sum <- data_sum |>
+      bind_rows(
+        data |>
+        mutate(Group = ifelse(FAMILY %in% c("Acanthuridae", "Scarinae", "Siganidae"),
+                              "Herbivores",
+                       ifelse(FAMILY %in% c("Labridae", "Lethrinidae",
+                                            "Lutjanidae", "Serranidae"),
+                              "Harvested", "Other")),
+               tempGROUP = ifelse(Group=="Herbivores", as.character(Trophic),
+                           ifelse(Group=="Harvested" &
+                                  GENUS %in% c("Plectropomus", "Variola"),
+                                  "Coral Trout", FAMILY)),
+               tempGROUP = if(status_$settings$data_scale$item == "reef")
+                             tempGROUP else NA  #only for reef level analyses
+               ) |>
+        dplyr::filter(Group != "Other") |>
+        left_join(lookup_h) |> #, by = c("Group", "tempGROUP")) |>
+        mutate(fGROUP = ifelse(is.na(fGROUP), "Other", fGROUP)) |>
+        group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
+                 REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP) |>
+        summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+        ungroup()
+      )
+  },
+  stage_ = 3,
+  order_ = 8,
+  name_ = "Process herb/harv fish",
+  item_ = "process_h_fish"
+  )
+  return(data_sum)  
+}
+
+ltmp_process_trout_fish <- function(data, data_sum) {
+  status::status_try_catch(
+  {
+    ## Start by removing unneeded fields
+    data <- data |>
+      dplyr::select(-matches("^AIMS_REEF_NAME$|^REGION$|^A_SECTOR$|^CRUISE_CODE$|^SECTOR$"))
+    ## Now add the Coral Trout and Secondary Targets (Abundance, Density and Biomass)
+    ## for this, remove data prior to 1995, as there are no lengths
+    data_sum <- data_sum |>
+      bind_rows(data |>
+                mutate(Group = Trophic) |>
+                filter(Trophic %in% c("Coral Trout", "Secondary targets"),
+                       REPORT_YEAR>1996) |>    # CHECK THIS!!!
+                droplevels() |>
+                group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
+                         REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group) |>
+                summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE),
+                          Biomass = sum(BIOMASS, na.rm = TRUE)) |>
+                ungroup()
+                )
+  },
+  stage_ = 3,
+  order_ = 9,
+  name_ = "Process trout fish",
+  item_ = "process_trout_fish"
+  )
+  return(data_sum)  
+}
+
+ltmp_process_fish <- function(data_sum, data_spatial) {
+  status::status_try_catch(
+  {
+    ## Tidy up variables and add spatial domains
+    data <- data_sum |>
+      mutate(
+        fYEAR = REPORT_YEAR,
+        across(c(fYEAR), function(x) factor(as.character(x))),
+        DATE = as.Date(SURVEY_DATE, format = "%Y-%m-%d")) |>
+      left_join(data_spatial |>
+                dplyr::select(-Latitude,-Longitude)) |>
+      mutate(VARIABLE = Group) |>
+      dplyr::select(-Group) |>
+      suppressMessages() |>
+      suppressWarnings()
+  },
+  stage_ = 3,
+  order_ = 10,
+  name_ = "Process fish",
+  item_ = "process_fish"
+  )
+  return(data)  
+}

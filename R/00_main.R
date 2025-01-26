@@ -203,6 +203,17 @@ args <- commandArgs()
 ##   "--status=true",                                  ##whether to show full status 
 ##   "--refresh_data=false"                            ##whether to refresh all the data 
 ## )
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=manta_cover.R",                            ##the name of the target script
+##   "--path=/data/manta/2021-01-14/process/ALL/2024/CG/Sectors/CG/raw/reef_data.zip",
+##   "--method=manta",
+##   "--domain=CG",
+##   "--scale=Sectors",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
 
 ## args = c(
 ##   "R",
@@ -240,6 +251,31 @@ args <- commandArgs()
 ##   "--refresh_data=false"                            ##whether to refresh all the data 
 ## )
 
+## fish
+
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=fish_cover.R",                            ##the name of the target script
+##   "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Carter Reef/raw/reef_data.zip",
+##   "--method=fish",
+##   "--domain=Carter Reef",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
+
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=fish_cover.R",                            ##the name of the target script
+##   "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Erskine Island/raw/reef_data.zip",
+##   "--method=fish",
+##   "--domain=Erskine Island",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 ## Photo-transect analyses
@@ -255,3 +291,6 @@ if (status::get_setting(element = "data_method") == "juvenile")
   source("ltmp_juvenile_cover.R")
 
 ## Fish analyses
+if (status::get_setting(element = "data_method") == "fish") 
+  source("ltmp_fish_cover.R")
+

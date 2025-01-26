@@ -88,7 +88,7 @@ ltmp_analysis_splits <- function(data) {
                                           SPLIT_SHELF = TRUE
                                         )
                                       }
-                                      if (data_scale == "GBR") splits$SPLIT_SHELF <- FALSE
+                                      if (data_scale %in% c("GBR", "Sectors")) splits$SPLIT_SHELF <- FALSE
                                       if (data |> pull(fGROUP) |> unique() |> length() == 1) splits$MODEL_GROUPS=FALSE
                                       if (data |> pull(REEF_ZONE) |> unique() |> length() == 1) splits$MODEL_REEF_ZONE=FALSE
                                       if (data |> pull(fDEPTH) |> unique() |> length() == 1) splits$MODEL_DEPTH=FALSE
@@ -320,6 +320,13 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
                                              Cover = NA,
                                              Tows = NA, fTOW = NA)
                              }
+                             if (data_type == "fish") {
+                               newdata <- data_group |>
+                               tidyr::expand(fYEAR, fGROUP, REEF = NA,
+                                             SITE = NA, SITE_NO = NA,
+                                             TRANSECT_NO = NA,
+                                             ABUNDANCE = NA, BIOMASS = NA)
+                             }
                              ## Add back on the mean survey date so that
                              ## the modelled values can be plotted on an
                              ## x-axis reflecting sampling time Will
@@ -334,6 +341,7 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
                                                                   as.Date(paste0(unique(fYEAR), '-01-01')))) |>
                                          dplyr::select(fYEAR, DATE) |>
                                          distinct()
+                                         ## by = "fYEAR"
                                          )
                              newdata
                            }
@@ -526,8 +534,12 @@ get_model_posteriors <- function(mod_str, data.group) {
 
   draws <- inla.posterior.sample(n = 1000, mod, seed = 123)
 
+  ## get the inverse link from the model
+  link_fun <- mod$.args$control.family[[1]]$link
+  inv_link <- function(x) get(paste0("inla.link.", link_fun))(x, inverse = TRUE)
+  
   cellmeans <- sapply(draws, function(x) x[[2]][(nd + 1):nt])
-  year_group_posteriors <- get_year_group_posteriors(newdata, cellmeans, replace_0)
+  year_group_posteriors <- get_year_group_posteriors(newdata, cellmeans, replace_0, inv_link)
   year_group_posteriors_label <- gsub(".rds$", "_year_group_posteriors.rds", mod_str)
   saveRDS(year_group_posteriors, file = year_group_posteriors_label)
 
@@ -538,7 +550,7 @@ get_model_posteriors <- function(mod_str, data.group) {
   saveRDS(year_group_sum, file = gsub("posteriors", "sum", year_group_posteriors_label))
 
   ## marginalise over fGROUP
-  year_posteriors <- get_year_posteriors(newdata, cellmeans, replace_0)
+  year_posteriors <- get_year_posteriors(newdata, cellmeans, replace_0, inv_link)
   year_posteriors_label <- gsub(".rds$", "_year_posteriors.rds", mod_str)
   saveRDS(year_posteriors, file = year_posteriors_label)
   write_csv(year_posteriors |> dplyr::select(-fYEAR),
@@ -546,8 +558,12 @@ get_model_posteriors <- function(mod_str, data.group) {
 
   year_sum <- year_posteriors %>%
     group_by(fYEAR, REPORT_YEAR, DATE) %>%
-    mean_median_hdci(value) %>%
-    mutate(upper = ifelse(upper > 1, 1, upper))
+    mean_median_hdci(value)
+  ## for binomial models, make sure the upper limit maxes out a 1
+  if (link_fun == "logit") {
+    year_sum <- year_sum |> 
+      mutate(upper = ifelse(upper > 1, 1, upper))
+  }
   saveRDS(year_sum, file = gsub("posteriors", "sum", year_posteriors_label))
 
   ## year comparisons
@@ -605,10 +621,11 @@ get_model_posteriors <- function(mod_str, data.group) {
          )
   )
 }
-get_year_group_posteriors <- function(newdata, cellmeans, replace_0) {
+get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = plogis) {
   newdata <- newdata |>
     dplyr::select(fYEAR, fGROUP, REPORT_YEAR, DATE) |>
-    cbind(plogis(cellmeans)) %>%
+    ## cbind(plogis(cellmeans)) %>%
+    cbind(inv_link(cellmeans)) %>%
     rename_with(function(x) x <- 1, matches("plogis")) %>%
     pivot_longer(cols = matches("[0-9]"), names_to = ".draw")
   if (nrow(replace_0) > 0) {
@@ -627,10 +644,11 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0) {
     mutate(value = ifelse(is.na(value), 0, value))  
   newdata
 }
-get_year_posteriors <- function(newdata, cellmeans, replace_0) {
+get_year_posteriors <- function(newdata, cellmeans, replace_0, inv_link) {
   newdata <- newdata |>
     dplyr::select(fYEAR,fGROUP, REPORT_YEAR, DATE) %>%
-    cbind(plogis(cellmeans)) %>%
+    ## cbind(plogis(cellmeans)) %>%
+    cbind(inv_link(cellmeans)) %>%
     pivot_longer(cols = matches("[0-9]"), names_to = ".draw") 
   if (nrow(replace_0) > 0) {
     newdata <- newdata |>
@@ -719,6 +737,11 @@ ltmp_compare_models <- function(dat) {
                         mutate(model_type = .y)
                     }
                     )) |>
+      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      (\(.x) if ("sub_variable" %in% names(.x))
+              .x |> mutate(label = paste0(label, "_", sub_variable))
+            else .x
+      )() |> 
       dplyr::select(VARIABLE, splits, label, raw_sum, compare_models) |>
       unnest(c(compare_models)) |> 
       group_by(VARIABLE, splits, label, raw_sum) |>
@@ -728,6 +751,20 @@ ltmp_compare_models <- function(dat) {
                          data <- ..1
                          raw_sum <- ..2
                          lab <- ..3
+                         lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
+                                           "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
+                                           "manta", NA, NA, "Percent cover", scales::label_percent(),
+                                           "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
+                                           "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                                           "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                                           )
+                                           
+                         st <- strsplit(lab, "_")[[1]]
+                         lookup <- lookup |> filter(data_type == st[[1]])
+                         if (length(st) == 9) 
+                           lookup <- lookup |> filter(sub_variable == st[[9]])
+                         ylab <- lookup$ylab
+                         yscale <- lookup$scale[[1]]
                          gg <-
                            data |> ggplot(aes(x = REPORT_YEAR, y = median)) +
                            geom_ribbon(aes(ymin = lower, ymax = upper),
@@ -742,7 +779,8 @@ ltmp_compare_models <- function(dat) {
                                          colour = "Raw median")) +
                            facet_grid(~model_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
-                           scale_y_continuous("Cover", label = scales::label_percent()) +
+                           scale_y_continuous(ylab, label = yscale) +
+                               ## scale_y_continuous(ylab, label = scales::label_percent())
                            theme_bw() +
                            theme(axis.title.x = element_blank(),
                                  strip.background = element_rect(fill = "lightblue")
@@ -768,6 +806,8 @@ ltmp_group_compare_models <- function(dat) {
     if (status::get_setting(element = "data_scale") == "reef") {
     dat_group_compare <-
       dat |>
+      dplyr::filter(sub_variable != "Biomass") |>
+      droplevels() |> 
       mutate(compare_models =
                map2(.x = posteriors, .y = model_type,
                     .f = ~ {
@@ -776,6 +816,11 @@ ltmp_group_compare_models <- function(dat) {
                         mutate(model_type = .y)
                     }
                     )) |>
+      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      (\(.x) if ("sub_variable" %in% names(.x))
+              .x |> mutate(label = paste0(label, "_", sub_variable))
+            else .x
+      )() |> 
       dplyr::select(VARIABLE, splits, label, data_group, compare_models) |>
       unnest(c(compare_models)) |> 
       group_by(VARIABLE, splits, label, data_group) |>
@@ -785,6 +830,21 @@ ltmp_group_compare_models <- function(dat) {
                          data <- ..1
                          data_group <- ..2
                          lab <- ..3
+                         lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
+                                           "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
+                                           "manta", NA, NA, "Percent cover", scales::label_percent(),
+                                           "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
+                                           "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                                           "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                                           )
+                         st <- strsplit(lab, "_")[[1]]
+                         lookup <- lookup |> filter(data_type == st[[1]])
+                         if (length(st) == 9) 
+                           lookup <- lookup |> filter(sub_variable == st[[9]])
+                         ylab <- lookup$ylab
+                         yscale <- lookup$scale[[1]]
+
+                         if (length(unique(data$fGROUP))<2) return(NULL)
                          ## data |>
                          ##   group_by(fGROUP) |>
                          ##   summarise(cover = sum(median)) |>
@@ -798,7 +858,8 @@ ltmp_group_compare_models <- function(dat) {
                            geom_bar(aes(fill = fGROUP), stat = "Identity", position = "stack") +
                            facet_grid(~model_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
-                           scale_y_continuous("Cover", label = scales::label_percent()) +
+                           scale_y_continuous(ylab, label = yscale) +
+                           ## scale_y_continuous("Cover", label = scales::label_percent()) +
                            scale_fill_discrete("", labels = function(x) rev(x)) +
                            theme_bw() +
                            theme(axis.title.x = element_blank(),
@@ -827,50 +888,65 @@ ltmp_raw_summary_plots <- function(dat) {
   {
     raw_plots <-
       dat |>
+      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      (\(.x) if ("sub_variable" %in% names(.x))
+              .x |> mutate(label = paste0(label, "_", sub_variable))
+            else .x
+      )() |> 
       mutate(gg =
                pmap(.l = list(data_group, raw_sum, label),
                     .f = ~ {
                       data_group <- ..1
                       raw_sum <- ..2
                       lab <- ..3
+
+                      lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
+                                        "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
+                                        "manta", "Cover", NA, "Percent cover", scales::label_percent(),
+                                        "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
+                                        "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                                        "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                                        )
+                      st <- strsplit(lab, "_")[[1]]
+                      lookup <- lookup |> filter(data_type == st[[1]])
+                      if (length(st) == 9) 
+                        lookup <- lookup |> filter(sub_variable == st[[9]])
+                      ylab <- lookup$ylab
+                      yscale <- lookup$scale[[1]]
+                      resp <- lookup$resp[[1]]
+
                       if (status::get_setting(element = "data_method") %in%
-                          c("photo-transect", "juvenile")) {
-                        gg <- 
+                          c("photo-transect", "juvenile", "fish")) {
+                        dg <- 
                           data_group |> 
                           group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                          summarise(PERC_COVER = sum(PERC_COVER)) |>
-                          ungroup() |> 
-                          ggplot(aes(x = REPORT_YEAR, y = PERC_COVER)) +
-                          geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
-                                    show.legend = FALSE) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Mean,
-                                        x = as.numeric(as.character(fYEAR)))) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Median,
-                                        x = as.numeric(as.character(fYEAR))),
-                                    linetype = "dashed") +
-                          facet_wrap(~REEF) +
-                          theme_bw()
-                      } else {
-                        gg <- 
+                          ## summarise(PERC_COVER = sum(PERC_COVER)) |>
+                          summarise(value = sum(!!sym(resp))) |> 
+                          ungroup() 
+                      } else {  ## manta
+                        dg <- 
                           data_group |> 
                           group_by(REPORT_YEAR, REEF, fDEPTH) |>
-                          summarise(PERC_COVER = mean(Cover)) |>
-                          ungroup() |> 
-                          ggplot(aes(x = REPORT_YEAR, y = PERC_COVER)) +
-                          geom_line(aes(color = paste0(fDEPTH)),
-                                    show.legend = FALSE) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Mean,
-                                        x = as.numeric(as.character(fYEAR)))) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Median,
-                                        x = as.numeric(as.character(fYEAR))),
-                                    linetype = "dashed") +
-                          facet_wrap(~REEF) +
-                          theme_bw()
+                          summarise(value = mean(Cover)) |>
+                          mutate(TRANSECT_NO = NA) |> 
+                          ungroup()
                       }
+                      gg <- 
+                        dg |> 
+                        ggplot(aes(x = REPORT_YEAR, y = value)) +
+                        geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
+                                  show.legend = FALSE) +
+                        geom_line(data = raw_sum,
+                                  aes(y = Mean,
+                                      x = as.numeric(as.character(fYEAR)))) +
+                        geom_line(data = raw_sum,
+                                  aes(y = Median,
+                                      x = as.numeric(as.character(fYEAR))),
+                                  linetype = "dashed") +
+                        scale_y_continuous(ylab, label = yscale) +
+                        scale_x_continuous("") +
+                        facet_wrap(~REEF) +
+                        theme_bw()
                       filenm <- paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".png")
                       saveRDS(gg, file = paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".rds"))
                       ggsave(filename = filenm, plot = gg, width = 12, height = 7)
@@ -890,18 +966,43 @@ ltmp_raw_summary_plots <- function(dat) {
 ltmp_raw_group_summary_plots <- function(dat) {
   status::status_try_catch(
   {
-    if (status::get_setting(element = "data_scale") == "reef") {
+    if (status::get_setting(element = "data_scale") == "reef" &
+        status::get_setting(element = "data_method") != "manta") {
       raw_group_plots <-
         dat |>
+        ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+        (\(.x) if ("sub_variable" %in% names(.x))
+                 .x |> mutate(label = paste0(label, "_", sub_variable))
+               else .x
+        )() |> 
         mutate(gg =
                  pmap(.l = list(data_group, raw_sum, label),
                       .f = ~ {
                         data_group <- ..1
                         raw_sum <- ..2
                         lab <- ..3
-                        gg <- 
-                          data_group |> 
-                          ggplot(aes(x = REPORT_YEAR, y = PERC_COVER)) +
+
+                        lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
+                                          "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
+                                          "manta", "Cover", NA, "Percent cover", scales::label_percent(),
+                                          "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
+                                          "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                                          "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                                          )
+                        st <- strsplit(lab, "_")[[1]]
+                        lookup <- lookup |> filter(data_type == st[[1]])
+                        if (length(st) == 9) 
+                          lookup <- lookup |> filter(sub_variable == st[[9]])
+                        ylab <- lookup$ylab
+                        yscale <- lookup$scale[[1]]
+                        resp <- lookup$resp[[1]]
+
+                        ## if (status::get_setting(element = "data_method") %in%
+                        ##     c("photo-transect", "juvenile", "fish")) {
+                          gg <- 
+                            data_group |> 
+                            mutate(value = !!sym(resp)) |> 
+                          ggplot(aes(x = REPORT_YEAR, y = value)) +
                           geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
                                     show.legend = FALSE) +
                           geom_line(data = raw_sum,
@@ -911,8 +1012,11 @@ ltmp_raw_group_summary_plots <- function(dat) {
                                     aes(y = Median,
                                         x = as.numeric(as.character(fYEAR))),
                                     linetype = "dashed") +
+                          scale_y_continuous(ylab, label = yscale) +
+                          scale_x_continuous("") +
                           facet_wrap(~fGROUP) +
                           theme_bw()
+                        ## }
                         filenm <- paste0(FIGURES_PATH, "", "gg_raw_group_sum_", lab, ".png")
                         saveRDS(gg, file = paste0(FIGURES_PATH, "", "gg_raw_group_sum_", lab, ".rds"))
                         ggsave(filename = filenm, plot = gg, width = 12, height = 7)
@@ -1244,6 +1348,164 @@ ltmp__fit_inla_manta <- function(dat, newdata, form, label, type = "beta") {
     }, silent = TRUE
     )
   }
+  if (inherits(mod.inla, "try-error")) {
+    return("")
+  }else {
+    saveRDS(mod.inla, file = label)
+    return(label)
+  }
+}
+
+## Fish specific functions
+
+ltmp_get_formula_fish <- function(data) {
+  status::status_try_catch(
+  {
+    model.hierarchy = list(
+      GBR=formula(~f(nNRM_YEAR, model='iid')+f(nREEF_YEAR, model='iid')+
+                    f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid')),
+      Zones=formula(~f(REEF, model='iid')+f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid')),
+      nrm=formula(~f(REEF, model='iid')+f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid')),
+      Bioregions=formula(~f(REEF, model='iid')+f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid')),
+      Sectors=formula(~f(REEF, model='iid')+f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid')),
+      reef=formula(~f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid'))
+    )
+    data <- data |> 
+      mutate(form =  map(status::get_setting(element = "data_scale"),
+                         .f = ~ {
+                           form <- model.hierarchy[[.x]]
+                           update.formula(form, ABUNDANCE ~.+fYEAR)
+                         }
+                         ))
+    data
+  },
+  stage_ = 4,
+  order_ = 2,
+  name_ = "Make fish formula",
+  item_ = "make_formula_fish"
+  )
+  return(data)
+}
+
+ltmp_raw_data_summaries_fish <- function(dat) {
+  status::status_try_catch(
+  {
+    dat <- dat |>
+      mutate(raw_sum = map(.x = data_group,
+                           .f =  ~ {
+                             data_group <- .x
+                             data_group |> 
+                               mutate(abundance = ABUNDANCE,
+                                      biomass =  Biomass) |> 
+                               group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
+                               summarise(abundance = sum(abundance),
+                                         biomass = sum(biomass)
+                                         ## TOTAL = sum(TOTAL)
+                                         ) |>
+                               ungroup() |> 
+                               group_by(REEF, fYEAR) |> 
+                               summarise(Mean = mean(abundance),
+                                         Median = median(abundance),
+                                         Mean_biomass = mean(biomass),
+                                         Median_biomass = median(biomass)
+                                         ## Total.count = sum(TOTAL)
+                                         ) |>
+                               ungroup() |> 
+                               group_by(fYEAR) |> 
+                               summarise(Mean = mean(Mean),
+                                         Median = median(Median),
+                                         Mean_biomass = mean(Mean_biomass),
+                                         Median_biomass = median(Median_biomass),
+                                         ## Total.count = sum(Total.count)
+                                         ) |>
+                               as.data.frame()
+                           }
+                           ))
+    dat
+  },
+  stage_ = 4,
+  order_ = 9,
+  name_ = "Raw summaries",
+  item_ = "raw_sum_fish"
+  )
+  return(dat)
+}
+
+ltmp_fit_inla_fish <- function(dat) {
+  status::status_try_catch(
+  {
+    lookup <- tribble(~VARIABLE, ~sub_variable,
+                      "Coral Trout", "ABUNDANCE",
+                      "Coral Trout", "Biomass",
+                      "Secondary targets", "ABUNDANCE",
+                      "Secondary targets", "Biomass",
+                      "Large fishes", "ABUNDANCE",
+                      "Damselfishes", "ABUNDANCE",
+                      "Harvested", "ABUNDANCE",
+                      "Herbivores", "ABUNDANCE",
+                      "Total fishes", "ABUNDANCE"
+                      ) |>
+      full_join(
+        tribble(~sub_variable, ~model_type,
+                "Biomass", "tweedie",
+                "ABUNDANCE", "zeroinflatednbinomial1",
+                "ABUNDANCE", "nbinomial",
+                "ABUNDANCE", "zeroinflatedpoisson0",
+                "ABUNDANCE", "poisson"
+                )
+        )
+    dat <- dat |>
+      full_join(lookup) |> 
+      ## crossing(model_type = c("zeroinflatednbinomial1", "nbinomial",
+      ##                         "zeroinflatedpoisson0", "poisson")) |> 
+      mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type, sub_variable),
+                          .f = ~ ltmp__fit_inla_fish(..1, ..2, ..3, ..4, type = ..5, sub_variable = ..6)
+                          ))
+    dat
+  },
+  stage_ = 4,
+  order_ = 11,
+  name_ = "Fit models",
+  item_ = "fit_models_fish"
+  )
+  return(dat)
+}
+
+ltmp__fit_inla_fish <- function(dat, newdata, form, label, type = "zeroinflatednbinomial1", sub_variable) {
+  label <- paste0(DATA_PATH, "modelled/", label, "_", type, "_", sub_variable, ".rds")
+  print(label)
+  environment(form) <- new.env()
+  data_pred <- dat |>
+    bind_rows(newdata) 
+  ## There are numerous instances where juvenile corals were not observed at
+  ## all in any transects within the spatial domain for a year (missing cells)
+  ## This leads to modelling instability.  The original solution was to
+  ## remove these combinations prior to modelling and then add them back
+  ## in as zeros during the predition stage.  This does however cause issues
+  ## when comparing juvenile densities to such years (division by zero).
+  ## 
+  ## So, the current solution is to define strong priors for the offending
+  ## combinations, and vague priors on all others. Unfortunately, this adds
+  ## a complication that the model needs to be fit using a cellmeans
+  ## parameterisation rather than with treatment contrasts.  Hence, it is
+  ## necessary to convert the formula to a cellmeans formula and work
+  ## out which combinations to apply the stronger priors...
+  form <- convert_to_cellmeans(form)
+  priors <- make_strong_priors(dat)
+  ## if (type == "binomial") {
+  set.seed(123)
+  mod.inla <- try({
+    inla(form,
+         data = data_pred,
+         family = type,
+         control.family = list(link="log"),
+         control.predictor = list(link = 1, compute = TRUE),
+         control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+         control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE, config = TRUE)
+         )
+  }, silent = TRUE
+  )
+  ## }
   if (inherits(mod.inla, "try-error")) {
     return("")
   }else {

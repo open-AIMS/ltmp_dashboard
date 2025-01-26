@@ -93,7 +93,7 @@ if (data_type == "photo-transect" & data_scale == "reef") {
     file.append(file1 = old_log_file, file2 = out_log_file)
   }
 }
-if (data_type == "photo-transect" & data_scale == "sectors") {
+if (data_type == "photo-transect" & data_scale == "sector") {
   cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
   for (sec in domain) {
     old_log_file <- gsub(".log", ".old", out_log_file)
@@ -190,7 +190,7 @@ if (data_type == "manta" & data_scale == "reef") {
     file.append(file1 = old_log_file, file2 = out_log_file)
   }
 }
-if (data_type == "manta" & data_scale == "sectors") {
+if (data_type == "manta" & data_scale == "sector") {
   cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
   for (sec in domain) {
     old_log_file <- gsub(".log", ".old", out_log_file)
