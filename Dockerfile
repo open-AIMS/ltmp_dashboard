@@ -24,12 +24,12 @@ RUN R -e "options(repos = \
 
 RUN mkdir /home/analysis
 
-#COPY scripts/ /home/analysis/scripts/
-#COPY data/spatial/ /home/analysis/data/spatial/
+COPY R/ /home/analysis/R/
+COPY data/ /home/analysis/data/
 #COPY parameters/ /home/analysis/parameters
 
 #ENTRYPOINT ["Rscript ~/LTMP_web_reporting/scripts/LTMP_PT_cover.R"]
 
-#WORKDIR /home/analysis/scripts
+WORKDIR /home/analysis/R
 
 CMD pwd && ls -AlhF ./
