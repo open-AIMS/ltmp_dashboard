@@ -1,6 +1,7 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
 source("ltmp_write_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
@@ -164,8 +165,6 @@ raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots(model_lookup)
 ## bucket if it exists.                                              ##
 #######################################################################
 data_export <- data |> ltmp_prepare_export(model_lookup)
-data_export |> write_csv(file = status::get_setting(element = "csv_file"))
-write_aws(filenm = basename(gsub(".rds$", ".csv", status::get_setting(element = "csv_file"))),
-            catalog_file = TRUE)
+data_export |> ltmp_export_data()
 
 

@@ -1,5 +1,6 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
@@ -133,3 +134,10 @@ data_compare <- data |> ltmp_compare_models(model_lookup)
 #######################################################################
 raw_summary_plots <- data |> ltmp_raw_summary_plots(model_lookup)
 ## raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots()
+
+#######################################################################
+## Prepare model summaries for export and then export to the AWS     ##
+## bucket if it exists.                                              ##
+#######################################################################
+data_export <- data |> ltmp_prepare_export(model_lookup)
+data_export |> ltmp_export_data()
