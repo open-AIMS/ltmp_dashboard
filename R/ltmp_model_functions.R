@@ -1,5 +1,6 @@
+
+## Common functions ===================================================
 ltmp_load_processed_data_pt <- function() {
-  ## Common functions
   status::status_try_catch(
   {
     load(file = paste0(DATA_PATH, "processed/", RDATA_FILE))
@@ -9,6 +10,24 @@ ltmp_load_processed_data_pt <- function() {
   order_ = 1,
   name_ = "Load data",
   item_ = "load_data"
+  )
+  return(data)  
+}
+ltmp_nested_table <- function(data, model_lookup) {
+  status::status_try_catch(
+  {
+    data <- data |>
+      group_by(VARIABLE) |>
+      nest() |>
+      full_join(model_lookup |>
+                dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model),
+                by = "VARIABLE") |>
+      dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model, everything())
+  },
+  stage_ = 4,
+  order_ = 1,
+  name_ = "Nest data",
+  item_ = "nest_data"
   )
   return(data)  
 }
@@ -27,12 +46,21 @@ ltmp_get_formula_pt <- function(data) {
       reef=formula(~f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid'))
     )
     data <- data |> 
-      mutate(form =  map(status::get_setting(element = "data_scale"),
+      mutate(form =  map(model_response,
                          .f = ~ {
-                           form <- model.hierarchy[[.x]]
-                           update.formula(form, COUNT ~.+fYEAR)
+                           data_scale <- status::get_setting(element = "data_scale")
+                           form <- model.hierarchy[[data_scale]]
+                           ## update.formula(form, COUNT ~.+fYEAR)
+                           update.formula(form, paste0(.x, "~.+fYEAR"))
                          }
                          ))
+    ## data <- data |> 
+    ##   mutate(form =  map(status::get_setting(element = "data_scale"),
+    ##                      .f = ~ {
+    ##                        form <- model.hierarchy[[.x]]
+    ##                        update.formula(form, COUNT ~.+fYEAR)
+    ##                      }
+    ##                      ))
     data
   },
   stage_ = 4,
@@ -241,17 +269,24 @@ remove_terms <- function(form, term) {
   fac <- attr(fterms, "factors")
   if (!term %in% colnames(fac)) return(form)
   idx <- which(as.logical(fac[term, ]))
-  new_fterms <- drop.terms(fterms, dropx = idx, keep.response = TRUE)
-  return(formula(new_fterms))
+  if (length(fac)>2) {
+    new_fterms <- drop.terms(fterms, dropx = idx, keep.response = TRUE)
+    return(formula(new_fterms))
+  } else { # fYEAR is the only term and drop.terms must not be left without anything
+    return(update(form, .~ 1))
+  }
+    
 }
 
-ltmp_prepare_variables <- function(dat, VAR = "COUNT") {
+## ltmp_prepare_variables <- function(dat, VAR = "COUNT") {
+ltmp_prepare_variables <- function(dat) {
   status::status_try_catch(
   {
     dat <- 
       dat |>
       mutate(data_group =
-               map(.x = data_group,
+               map2(.x = data_group, .y = model_response,
+               ## map(.x = data_group,
                    .f = ~ {
                      data_group <- .x
                      ## In addition to fitting the models, there is a
@@ -268,7 +303,9 @@ ltmp_prepare_variables <- function(dat, VAR = "COUNT") {
                      if (length(unique(data_group$fGROUP)) > 1) {
                        fgroup_levels <- data_group |>
                          group_by(fGROUP) |>
-                         summarise(Sum=sum(!!sym(VAR), na.rm=TRUE)) |>
+                         ## summarise(Sum=sum(.data[[VAR]], na.rm=TRUE)) |>
+                         ## summarise(Sum=sum(!!sym(VAR), na.rm=TRUE)) |>
+                         summarise(Sum=sum(get(.y), na.rm=TRUE)) |>
                          arrange(-Sum) |>
                          pull(fGROUP)
                        data_group <- data_group |>
@@ -325,7 +362,7 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
                                tidyr::expand(fYEAR, fGROUP, REEF = NA,
                                              SITE = NA, SITE_NO = NA,
                                              TRANSECT_NO = NA,
-                                             ABUNDANCE = NA, BIOMASS = NA)
+                                             ABUNDANCE = NA, Biomass =  NA)
                              }
                              ## Add back on the mean survey date so that
                              ## the modelled values can be plotted on an
@@ -396,13 +433,16 @@ ltmp_make_modelling_label <- function(dat) {
   status::status_try_catch(
   {
     dat <- dat |>
-      mutate(label = pmap(.l = list(VARIABLE, splits),
+      mutate(label = pmap(.l = list(VARIABLE, family_type, splits, model_type, sub_model),
                           .f =  ~ paste(
                                 status::get_setting(element = "data_method"),
                                 status::get_setting(element = "data_scale"),
                                 status::get_setting(element = "domain_name"),
-                                ..1,
-                                ..2,
+                                ..1,  #VARIABLE
+                                ..2,  #family_type
+                                gsub("(.*)_$", "\\1", ..3),  #splits (take the last delimiter off)
+                                ..4,  #model_type
+                                ifelse(is.na(..5), " ", ..5),  #sub_model
                                 sep = "_")))
     dat
   },
@@ -441,8 +481,8 @@ ltmp_fit_inla_pt <- function(dat) {
   status::status_try_catch(
   {
     dat <- dat |>
-      crossing(model_type = c("binomial", "beta-binomial")) |> 
-      mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type),
+      ## crossing(model_type = c("binomial", "beta-binomial")) |> 
+      mutate(model = pmap(.l = list(data_group, newdata, form, label, family_type),
                           .f = ~ ltmp__fit_inla_pt(..1, ..2, ..3, ..4, type = ..5)
                           ))
     dat
@@ -456,7 +496,8 @@ ltmp_fit_inla_pt <- function(dat) {
 }
 
 ltmp__fit_inla_pt <- function(dat, newdata, form, label, type = "binomial") {
-  label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+  ## label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+  label <- paste0(DATA_PATH, "modelled/", label, ".rds")
   print(label)
   environment(form) <- new.env()
   data_pred <- dat |>
@@ -539,9 +580,14 @@ get_model_posteriors <- function(mod_str, data.group) {
   inv_link <- function(x) get(paste0("inla.link.", link_fun))(x, inverse = TRUE)
   
   cellmeans <- sapply(draws, function(x) x[[2]][(nd + 1):nt])
+  if(is.null(dim(cellmeans))) cellmeans <- t(cellmeans)
   year_group_posteriors <- get_year_group_posteriors(newdata, cellmeans, replace_0, inv_link)
   year_group_posteriors_label <- gsub(".rds$", "_year_group_posteriors.rds", mod_str)
   saveRDS(year_group_posteriors, file = year_group_posteriors_label)
+  write_csv(year_group_posteriors |> dplyr::select(-fYEAR),
+            file = gsub(".rds", ".csv", year_group_posteriors_label))
+  write_aws(filenm = basename(gsub(".rds$", ".csv", year_group_posteriors_label)),
+            catalog_file = TRUE)
 
   year_group_sum <- year_group_posteriors |>
     group_by(fYEAR, fGROUP, REPORT_YEAR, DATE) %>%
@@ -554,7 +600,10 @@ get_model_posteriors <- function(mod_str, data.group) {
   year_posteriors_label <- gsub(".rds$", "_year_posteriors.rds", mod_str)
   saveRDS(year_posteriors, file = year_posteriors_label)
   write_csv(year_posteriors |> dplyr::select(-fYEAR),
-            file = gsub(".rds", ".csv", gsub("_year_", "_annual_", year_posteriors_label)))
+            file = gsub(".rds$", ".csv", gsub("_year_", "_annual_", year_posteriors_label)))
+  write_aws(filenm = basename(gsub(".rds$", ".csv",
+                                   gsub("_year_", "_annual_", year_posteriors_label))),
+            catalog_file = TRUE)
 
   year_sum <- year_posteriors %>%
     group_by(fYEAR, REPORT_YEAR, DATE) %>%
@@ -565,50 +614,61 @@ get_model_posteriors <- function(mod_str, data.group) {
       mutate(upper = ifelse(upper > 1, 1, upper))
   }
   saveRDS(year_sum, file = gsub("posteriors", "sum", year_posteriors_label))
-
+  
   ## year comparisons
-  yearcomp_posteriors <- get_yearcomp_posteriors(newdata, year_posteriors)
-  yearcomp_posteriors_label <- gsub(".rds$", "_yearcomp_posteriors.rds", mod_str)
-  saveRDS(yearcomp_posteriors, file = yearcomp_posteriors_label)
+  if (length(unique(year_posteriors$fYEAR)) > 1) {  ## no point if there is only one year
+    yearcomp_posteriors <- get_yearcomp_posteriors(newdata, year_posteriors)
+    yearcomp_posteriors_label <- gsub(".rds$", "_yearcomp_posteriors.rds", mod_str)
+    saveRDS(yearcomp_posteriors, file = yearcomp_posteriors_label)
 
-  yearcomp_sum <- yearcomp_posteriors |>
-    ungroup() |>
-    group_by(YearComp) |>
-    dplyr::select(-.draw) |>
-    summarise_draws(mean, median, HDInterval::hdi,
-                    pl1 = ~ mean(.x < 0),
-                    pl2 = ~ mean(.x < 1),
-                    pg1 = ~ mean(.x > 0),
-                    pg2 = ~ mean(.x > 1)
-                    ) |>
-    ungroup() |>
-    mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
-    mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
-    dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
-    arrange(desc(YearComp))
-  saveRDS(yearcomp_sum, file = gsub("posteriors", "sum", yearcomp_posteriors_label))
+    yearcomp_sum <- yearcomp_posteriors |>
+      ungroup() |>
+      group_by(YearComp) |>
+      dplyr::select(-.draw) |>
+      summarise_draws(mean, median, HDInterval::hdi,
+                      pl1 = ~ mean(.x < 0),
+                      pl2 = ~ mean(.x < 1),
+                      pg1 = ~ mean(.x > 0),
+                      pg2 = ~ mean(.x > 1)
+                      ) |>
+      ungroup() |>
+      mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
+      mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
+      dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
+      arrange(desc(YearComp))
+    saveRDS(yearcomp_sum, file = gsub("posteriors", "sum", yearcomp_posteriors_label))
+  } else {
+    yearcomp_posteriors_label <- ""
+    yearcomp_sum <- NULL
+  }
 
   ## all year comparisons
-  all_yearcomp_posteriors <- get_all_yearcomp_posteriors(newdata, year_posteriors)
-  all_yearcomp_posteriors_label <- gsub(".rds$", "_all_yearcomp_posteriors.rds", mod_str)
-  saveRDS(all_yearcomp_posteriors, file = all_yearcomp_posteriors_label)
+  if (length(unique(year_posteriors$fYEAR)) > 1) {  ## no point if there is only one year
+    all_yearcomp_posteriors <- get_all_yearcomp_posteriors(newdata, year_posteriors)
+    all_yearcomp_posteriors_label <- gsub(".rds$", "_all_yearcomp_posteriors.rds", mod_str)
+    saveRDS(all_yearcomp_posteriors, file = all_yearcomp_posteriors_label)
 
-  all_yearcomp_sum <- all_yearcomp_posteriors |>
-    ungroup() |>
-    group_by(YearComp) |>
-    dplyr::select(-.draw) |>
-    summarise_draws(mean, median, HDInterval::hdi,
-                    pl1 = ~ mean(.x < 0),
-                    pl2 = ~ mean(.x < 1),
-                    pg1 = ~ mean(.x > 0),
-                    pg2 = ~ mean(.x > 1)
-                    ) |>
-    ungroup() |>
-    mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
-    mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
-    dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
-    arrange(desc(YearComp))
-  saveRDS(all_yearcomp_sum, file = gsub("posteriors", "sum", all_yearcomp_posteriors_label))
+    all_yearcomp_sum <- all_yearcomp_posteriors |>
+      ungroup() |>
+      group_by(YearComp) |>
+      dplyr::select(-.draw) |>
+      summarise_draws(mean, median, HDInterval::hdi,
+                      pl1 = ~ mean(.x < 0),
+                      pl2 = ~ mean(.x < 1),
+                      pg1 = ~ mean(.x > 0),
+                      pg2 = ~ mean(.x > 1)
+                      ) |>
+      ungroup() |>
+      mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
+      mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
+      dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
+      arrange(desc(YearComp))
+    saveRDS(all_yearcomp_sum, file = gsub("posteriors", "sum", all_yearcomp_posteriors_label))
+  } else {
+    all_yearcomp_posteriors_label <- ""
+    all_yearcomp_sum <- NULL
+  }
+
 
   return(list(year_group_posteriors = year_group_posteriors_label, #year_group_posteriors,
          year_group_sum = year_group_sum,
@@ -724,52 +784,58 @@ mean_median_hdci <- function(.data, ...) {
     bind_cols(x2 %>% ungroup %>% dplyr::select(median=value))
 }
 
-ltmp_compare_models <- function(dat) {
+ltmp_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
     dat_compare <-
       dat |>
+      left_join(model_lookup |>
+                dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+                by = c("VARIABLE", "model_type", "family_type")) |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = model_type,
+               map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_sum |>
-                        mutate(model_type = .y)
+                        mutate(family_type = .y)
                     }
                     )) |>
-      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
-      (\(.x) if ("sub_variable" %in% names(.x))
-              .x |> mutate(label = paste0(label, "_", sub_variable))
-            else .x
-      )() |> 
-      dplyr::select(VARIABLE, splits, label, raw_sum, compare_models) |>
+      ## ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      ## (\(.x) if ("sub_variable" %in% names(.x))
+      ##         .x |> mutate(label = paste0(label, "_", model_type))
+      ##       else .x
+      ## )() |> 
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
+      dplyr::select(VARIABLE, splits, label, raw_sum, compare_models, ylab, scale) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, raw_sum) |>
+      group_by(VARIABLE, splits, label, raw_sum, ylab, scale) |>
       nest() |>
-      mutate(gg = pmap(.l = list(data, raw_sum, label),
+      mutate(gg = pmap(.l = list(data, raw_sum, label, ylab, scale),
                        .f =  ~ {
                          data <- ..1
                          raw_sum <- ..2
                          lab <- ..3
-                         lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
-                                           "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
-                                           "manta", NA, NA, "Percent cover", scales::label_percent(),
-                                           "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
-                                           "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
-                                           "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
-                                           )
+                         ylab <- ..4
+                         yscale <- ..5
+                         ## lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
+                         ##                   "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
+                         ##                   "manta", NA, NA, "Percent cover", scales::label_percent(),
+                         ##                   "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
+                         ##                   "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                         ##                   "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                         ##                   )
                                            
-                         st <- strsplit(lab, "_")[[1]]
-                         lookup <- lookup |> filter(data_type == st[[1]])
-                         if (length(st) == 9) 
-                           lookup <- lookup |> filter(sub_variable == st[[9]])
-                         ylab <- lookup$ylab
-                         yscale <- lookup$scale[[1]]
+                         ## st <- strsplit(lab, "_")[[1]]
+                         ## lookup <- lookup |> filter(data_type == st[[1]])
+                         ## if (length(st) == 9) 
+                         ##   lookup <- lookup |> filter(sub_variable == st[[9]])
+                         ## ylab <- lookup$ylab
+                         ## yscale <- lookup$scale[[1]]
                          gg <-
                            data |> ggplot(aes(x = REPORT_YEAR, y = median)) +
                            geom_ribbon(aes(ymin = lower, ymax = upper),
                                        fill = "orange", alpha = 0.3) +
-                           geom_line(aes(group = model_type, colour = model_type)) +
+                           geom_line(aes(group = family_type, colour = family_type)) +
                            geom_point()  +
                            geom_line(data = raw_sum,
                                      aes(y = Mean, x = as.numeric(as.character(fYEAR)),
@@ -777,7 +843,7 @@ ltmp_compare_models <- function(dat) {
                            geom_line(data = raw_sum,
                                      aes(y = Median, x = as.numeric(as.character(fYEAR)),
                                          colour = "Raw median")) +
-                           facet_grid(~model_type) +
+                           facet_grid(~family_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                                ## scale_y_continuous(ylab, label = scales::label_percent())
@@ -800,49 +866,55 @@ ltmp_compare_models <- function(dat) {
   return(dat_compare)
 }
 
-ltmp_group_compare_models <- function(dat) {
+ltmp_group_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
     if (status::get_setting(element = "data_scale") == "reef") {
     dat_group_compare <-
       dat |>
-      dplyr::filter(sub_variable != "Biomass") |>
+      left_join(model_lookup |>
+                dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+                by = c("VARIABLE", "model_type", "family_type")) |> 
+      dplyr::filter(model_type != "Biomass") |>
       droplevels() |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = model_type,
+               map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_group_sum |>
-                        mutate(model_type = .y)
+                        mutate(family_type = .y)
                     }
                     )) |>
-      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
-      (\(.x) if ("sub_variable" %in% names(.x))
-              .x |> mutate(label = paste0(label, "_", sub_variable))
-            else .x
-      )() |> 
-      dplyr::select(VARIABLE, splits, label, data_group, compare_models) |>
+      ## ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      ## (\(.x) if ("sub_variable" %in% names(.x))
+      ##         .x |> mutate(label = paste0(label, "_", sub_variable))
+      ##       else .x
+      ## )() |> 
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
+      dplyr::select(VARIABLE, splits, label, data_group, compare_models, ylab, scale) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, data_group) |>
+      group_by(VARIABLE, splits, label, data_group, ylab, scale) |>
       nest() |>
-      mutate(gg = pmap(.l = list(data, data_group, label),
+      mutate(gg = pmap(.l = list(data, data_group, label, ylab, scale),
                        .f =  ~ {
                          data <- ..1
                          data_group <- ..2
                          lab <- ..3
-                         lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
-                                           "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
-                                           "manta", NA, NA, "Percent cover", scales::label_percent(),
-                                           "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
-                                           "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
-                                           "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
-                                           )
-                         st <- strsplit(lab, "_")[[1]]
-                         lookup <- lookup |> filter(data_type == st[[1]])
-                         if (length(st) == 9) 
-                           lookup <- lookup |> filter(sub_variable == st[[9]])
-                         ylab <- lookup$ylab
-                         yscale <- lookup$scale[[1]]
+                         ylab <- ..4
+                         yscale <- ..5
+                         ## lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
+                         ##                   "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
+                         ##                   "manta", NA, NA, "Percent cover", scales::label_percent(),
+                         ##                   "juvenile", NA, NA, "Juveniles per m²", scales::label_percent(),
+                         ##                   "fish", NA, "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                         ##                   "fish", NA, "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                         ##                   )
+                         ## st <- strsplit(lab, "_")[[1]]
+                         ## lookup <- lookup |> filter(data_type == st[[1]])
+                         ## if (length(st) == 9) 
+                         ##   lookup <- lookup |> filter(sub_variable == st[[9]])
+                         ## ylab <- lookup$ylab
+                         ## yscale <- lookup$scale[[1]]
 
                          if (length(unique(data$fGROUP))<2) return(NULL)
                          ## data |>
@@ -856,7 +928,7 @@ ltmp_group_compare_models <- function(dat) {
                            mutate(fGROUP = forcats::fct_reorder(fGROUP, median)) |> 
                            ggplot(aes(x = REPORT_YEAR, y = median)) +
                            geom_bar(aes(fill = fGROUP), stat = "Identity", position = "stack") +
-                           facet_grid(~model_type) +
+                           facet_grid(~family_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                            ## scale_y_continuous("Cover", label = scales::label_percent()) +
@@ -883,46 +955,66 @@ ltmp_group_compare_models <- function(dat) {
   return(dat_group_compare)
 }
 
-ltmp_raw_summary_plots <- function(dat) {
+
+ltmp_raw_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
     raw_plots <-
-      dat |>
-      ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
-      (\(.x) if ("sub_variable" %in% names(.x))
-              .x |> mutate(label = paste0(label, "_", sub_variable))
-            else .x
-      )() |> 
+      dat  |>
+      left_join(model_lookup |>
+                dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+                by = c("VARIABLE", "model_type", "family_type")) |> 
+      ## ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+      ## (\(.x) if ("sub_variable" %in% names(.x))
+      ##         .x |> mutate(label = paste0(label, "_", sub_variable))
+      ##       else .x
+      ## )() |> 
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
       mutate(gg =
-               pmap(.l = list(data_group, raw_sum, label),
+               pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
                     .f = ~ {
                       data_group <- ..1
                       raw_sum <- ..2
                       lab <- ..3
-
-                      lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
-                                        "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
-                                        "manta", "Cover", NA, "Percent cover", scales::label_percent(),
-                                        "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
-                                        "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
-                                        "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
-                                        )
-                      st <- strsplit(lab, "_")[[1]]
-                      lookup <- lookup |> filter(data_type == st[[1]])
-                      if (length(st) == 9) 
-                        lookup <- lookup |> filter(sub_variable == st[[9]])
-                      ylab <- lookup$ylab
-                      yscale <- lookup$scale[[1]]
-                      resp <- lookup$resp[[1]]
-
+                         ylab <- ..4
+                         yscale <- ..5
+                      resp <- ..6
+                      ## lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
+                      ##                   "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
+                      ##                   "manta", "Cover", NA, "Percent cover", scales::label_percent(),
+                      ##                   "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
+                      ##                   "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                      ##                   "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                      ##                   )
+                      ## st <- strsplit(lab, "_")[[1]]
+                      ## lookup <- lookup |> filter(data_type == st[[1]])
+                      ## if (length(st) == 9) 
+                      ##   lookup <- lookup |> filter(sub_variable == st[[9]])
+                      ## ylab <- lookup$ylab
+                      ## yscale <- lookup$scale[[1]]
+                      ## resp <- lookup$resp[[1]]
                       if (status::get_setting(element = "data_method") %in%
                           c("photo-transect", "juvenile", "fish")) {
-                        dg <- 
-                          data_group |> 
-                          group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                          ## summarise(PERC_COVER = sum(PERC_COVER)) |>
-                          summarise(value = sum(!!sym(resp))) |> 
-                          ungroup() 
+                        if (resp == "COUNT") {
+                          dg <- 
+                            data_group |> 
+                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                            summarise(value = sum(PERC_COVER)) |>
+                            ungroup() 
+                        } else if (resp == "ABUNDANCE") {
+                          dg <- 
+                            data_group |> 
+                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                            summarise(value = sum(ABUNDANCE)) |>
+                            ungroup() 
+                        } else if (resp == "Biomass") {
+                          dg <- 
+                            data_group |> 
+                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                            summarise(value = sum(Biomass)) |>
+                            ungroup() 
+                        }
+
                       } else {  ## manta
                         dg <- 
                           data_group |> 
@@ -963,45 +1055,65 @@ ltmp_raw_summary_plots <- function(dat) {
   return(raw_plots)
 }
 
-ltmp_raw_group_summary_plots <- function(dat) {
+
+
+ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
     if (status::get_setting(element = "data_scale") == "reef" &
         status::get_setting(element = "data_method") != "manta") {
       raw_group_plots <-
         dat |>
-        ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
-        (\(.x) if ("sub_variable" %in% names(.x))
-                 .x |> mutate(label = paste0(label, "_", sub_variable))
-               else .x
-        )() |> 
+        left_join(model_lookup |>
+                  dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+                  by = c("VARIABLE", "model_type", "family_type")) |> 
+        ## ## this effects fish only.  It alters the label to distinguish between ABUNDANCE and Biomass models
+        ## (\(.x) if ("sub_variable" %in% names(.x))
+        ##          .x |> mutate(label = paste0(label, "_", sub_variable))
+        ##        else .x
+        ## )() |> 
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
         mutate(gg =
-                 pmap(.l = list(data_group, raw_sum, label),
+                 pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
                       .f = ~ {
                         data_group <- ..1
                         raw_sum <- ..2
                         lab <- ..3
+                         ylab <- ..4
+                         yscale <- ..5
+                      resp <- ..6
 
-                        lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
-                                          "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
-                                          "manta", "Cover", NA, "Percent cover", scales::label_percent(),
-                                          "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
-                                          "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
-                                          "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
-                                          )
-                        st <- strsplit(lab, "_")[[1]]
-                        lookup <- lookup |> filter(data_type == st[[1]])
-                        if (length(st) == 9) 
-                          lookup <- lookup |> filter(sub_variable == st[[9]])
-                        ylab <- lookup$ylab
-                        yscale <- lookup$scale[[1]]
-                        resp <- lookup$resp[[1]]
+                        ## lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
+                        ##                   "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
+                        ##                   "manta", "Cover", NA, "Percent cover", scales::label_percent(),
+                        ##                   "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
+                        ##                   "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                        ##                   "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                        ##                   )
+                        ## st <- strsplit(lab, "_")[[1]]
+                        ## lookup <- lookup |> filter(data_type == st[[1]])
+                        ## if (length(st) == 9) 
+                        ##   lookup <- lookup |> filter(sub_variable == st[[9]])
+                        ## ylab <- lookup$ylab
+                        ## yscale <- lookup$scale[[1]]
+                        ## resp <- lookup$resp[[1]]
 
                         ## if (status::get_setting(element = "data_method") %in%
                         ##     c("photo-transect", "juvenile", "fish")) {
-                          gg <- 
-                            data_group |> 
-                            mutate(value = !!sym(resp)) |> 
+                        if (status::get_setting(element = "data_method") %in%
+                            c("photo-transect", "juvenile", "fish")) {
+                          if (resp == "COUNT") {
+                            dg <- data_group |> mutate(value = PERC_COVER)
+                          } else if (resp == "ABUNDANCE") {
+                            dg <- data_group |> mutate(value = ABUNDANCE)
+                          } else if (resp == "Biomass") {
+                            dg <- data_group |> mutate(value = Biomass)
+                          }
+                        } else {  ## manta
+                          dg <- data_group |> mutate(value = Cover)
+                        }
+                        gg <- 
+                          dg |> 
                           ggplot(aes(x = REPORT_YEAR, y = value)) +
                           geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
                                     show.legend = FALSE) +
@@ -1026,6 +1138,7 @@ ltmp_raw_group_summary_plots <- function(dat) {
     } else {
       raw_group_plots <- dat |> mutate(gg = "")
     }
+    raw_group_plots
   },
   stage_ = 4,
   order_ = 14,
@@ -1035,6 +1148,41 @@ ltmp_raw_group_summary_plots <- function(dat) {
   return(raw_group_plots)
 }
 
+
+ltmp_choose_model <- function(dat) {
+  status::status_try_catch(
+  {
+    is_first_min <- function(x) {
+      if (all(is.na(x))) return(FALSE)
+      seq_along(x) == which.min(x)
+    }
+    comp <- dat |>
+      group_by(model_type, .add = TRUE) |> 
+      mutate(SS = pmap(.l = list(raw_sum, posteriors, model_type),
+                       .f = ~ {
+                         model_type <- ..3
+                         posts <- ..2$year_sum
+                         if (is.null(posts)) return(NA)
+                         raw <- ..1 ## |> 
+                         ## mutate(Mean = ifelse(model_type == "Biomass", Mean_biomass, Mean))
+                         raw |>
+                           full_join(posts, by = "fYEAR") |>
+                           summarise(SS = sum((Mean-median)^2, na.rm = TRUE))
+                       }
+                       )) |>
+      unnest(SS) |>
+      group_by(splits, .add = TRUE) |> 
+      mutate(selected = is_first_min(SS)) |> 
+      ungroup(model_type, splits)
+    comp
+  },
+  stage_ = 4,
+  order_ = 12,
+  name_ = "Select best model",
+  item_ = "select_model"
+  )
+  return(comp)
+}
 
 ## Juvenile specific functions
 
@@ -1196,16 +1344,24 @@ convert_to_cellmeans <- function(formula) {
   return(formula)
 }
 
-make_strong_priors <- function(dat) {
+make_strong_priors <- function(dat, VAR = "ABUNDANCE") {
   zero_abundances <- dat |> 
     group_by(fYEAR, fGROUP, .drop=FALSE) |> 
-    summarise(Sum = sum(ABUNDANCE, na.rm=TRUE)) |> 
+    ## summarise(Sum = sum(ABUNDANCE, na.rm=TRUE)) |> 
+    summarise(Sum = sum(!!sym(VAR), na.rm=TRUE)) |> 
     filter(Sum == 0) |> 
-    ungroup()
-  
-  prior_terms <- zero_abundances |>
-    mutate(term = paste0("fYEAR", fYEAR, ":fGROUP", fGROUP)) |>
-    pull(term)
+    ungroup() |>
+    suppressWarnings() |>
+    suppressMessages()
+  if (length(unique(dat$fGROUP)) == 1) {
+    prior_terms <- zero_abundances |>
+      mutate(term = paste0("fYEAR", fYEAR)) |>
+      pull(term)
+  } else {
+    prior_terms <- zero_abundances |>
+      mutate(term = paste0("fYEAR", fYEAR, ":fGROUP", fGROUP)) |>
+      pull(term)
+  }
   prior_mean <- lapply(prior_terms, function(x) log(0.001))
   prior_mean <- append(prior_mean, 0)
   names(prior_mean) <- c(prior_terms, "default")
@@ -1236,12 +1392,20 @@ ltmp_get_formula_manta <- function(data) {
       reef = formula(~1)
     )
     data <- data |> 
-      mutate(form =  map(status::get_setting(element = "data_scale"),
+      mutate(form =  map(model_response,
                          .f = ~ {
-                           form <- model.hierarchy[[.x]]
-                           update.formula(form, Cover ~.+fYEAR)
+                           data_scale <- status::get_setting(element = "data_scale")
+                           form <- model.hierarchy[[data_scale]]
+                           update.formula(form, paste0(.x, "~.+fYEAR"))
                          }
                          ))
+    ## data <- data |> 
+    ##   mutate(form =  map(status::get_setting(element = "data_scale"),
+    ##                      .f = ~ {
+    ##                        form <- model.hierarchy[[.x]]
+    ##                        update.formula(form, Cover ~.+fYEAR)
+    ##                      }
+    ##                      ))
     data
   },
   stage_ = 4,
@@ -1311,8 +1475,8 @@ ltmp_fit_inla_manta <- function(dat) {
   status::status_try_catch(
   {
     dat <- dat |>
-      crossing(model_type = c("beta")) |> 
-      mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type),
+      ## crossing(model_type = c("beta")) |> 
+      mutate(model = pmap(.l = list(data_group, newdata, form, label, family_type),
                           .f = ~ {
                             data_group <- ..1 |>
                               mutate(Cover = ifelse(Cover == 0, 0.001, ifelse(Cover == 1, 0.999, Cover)))
@@ -1330,7 +1494,8 @@ ltmp_fit_inla_manta <- function(dat) {
 }
 
 ltmp__fit_inla_manta <- function(dat, newdata, form, label, type = "beta") {
-  label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+  ## label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+  label <- paste0(DATA_PATH, "modelled/", label, ".rds")
   print(label)
   environment(form) <- new.env()
   data_pred <- dat |>
@@ -1371,12 +1536,21 @@ ltmp_get_formula_fish <- function(data) {
       reef=formula(~f(SITE_NO, model='iid')+f(TRANSECT_NO, model='iid'))
     )
     data <- data |> 
-      mutate(form =  map(status::get_setting(element = "data_scale"),
+      mutate(form =  map(model_response,
                          .f = ~ {
-                           form <- model.hierarchy[[.x]]
-                           update.formula(form, ABUNDANCE ~.+fYEAR)
+                           data_scale <- status::get_setting(element = "data_scale")
+                           form <- model.hierarchy[[data_scale]]
+                           ## update.formula(form, COUNT ~.+fYEAR)
+                           update.formula(form, paste0(.x, "~.+fYEAR"))
                          }
                          ))
+    ## data <- data |> 
+    ##   mutate(form =  map(status::get_setting(element = "data_scale"),
+    ##                      .f = ~ {
+    ##                        form <- model.hierarchy[[.x]]
+    ##                        update.formula(form, ABUNDANCE ~.+fYEAR)
+    ##                      }
+    ##                      ))
     data
   },
   stage_ = 4,
@@ -1391,36 +1565,27 @@ ltmp_raw_data_summaries_fish <- function(dat) {
   status::status_try_catch(
   {
     dat <- dat |>
-      mutate(raw_sum = map(.x = data_group,
-                           .f =  ~ {
-                             data_group <- .x
-                             data_group |> 
-                               mutate(abundance = ABUNDANCE,
-                                      biomass =  Biomass) |> 
-                               group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
-                               summarise(abundance = sum(abundance),
-                                         biomass = sum(biomass)
-                                         ## TOTAL = sum(TOTAL)
-                                         ) |>
-                               ungroup() |> 
-                               group_by(REEF, fYEAR) |> 
-                               summarise(Mean = mean(abundance),
-                                         Median = median(abundance),
-                                         Mean_biomass = mean(biomass),
-                                         Median_biomass = median(biomass)
-                                         ## Total.count = sum(TOTAL)
-                                         ) |>
-                               ungroup() |> 
-                               group_by(fYEAR) |> 
-                               summarise(Mean = mean(Mean),
-                                         Median = median(Median),
-                                         Mean_biomass = mean(Mean_biomass),
-                                         Median_biomass = median(Median_biomass),
-                                         ## Total.count = sum(Total.count)
-                                         ) |>
-                               as.data.frame()
-                           }
-                           ))
+      mutate(raw_sum = map2(.x = data_group, .y = model_response,
+                            .f =  ~ {
+                              data_group <- .x
+                              model_response <- .y
+                              data_group |> 
+                                mutate(value = get(model_response)) |> 
+                                group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
+                                summarise(value = sum(value)) |> 
+                                ungroup() |> 
+                                group_by(REEF, fYEAR) |> 
+                                summarise(Mean = mean(value),
+                                          Median = median(value)
+                                          ) |>
+                                ungroup() |> 
+                                group_by(fYEAR) |> 
+                                summarise(Mean = mean(Mean),
+                                          Median = median(Median)
+                                          ) |>
+                                as.data.frame()
+                            }
+                            ))
     dat
   },
   stage_ = 4,
@@ -1434,32 +1599,32 @@ ltmp_raw_data_summaries_fish <- function(dat) {
 ltmp_fit_inla_fish <- function(dat) {
   status::status_try_catch(
   {
-    lookup <- tribble(~VARIABLE, ~sub_variable,
-                      "Coral Trout", "ABUNDANCE",
-                      "Coral Trout", "Biomass",
-                      "Secondary targets", "ABUNDANCE",
-                      "Secondary targets", "Biomass",
-                      "Large fishes", "ABUNDANCE",
-                      "Damselfishes", "ABUNDANCE",
-                      "Harvested", "ABUNDANCE",
-                      "Herbivores", "ABUNDANCE",
-                      "Total fishes", "ABUNDANCE"
-                      ) |>
-      full_join(
-        tribble(~sub_variable, ~model_type,
-                "Biomass", "tweedie",
-                "ABUNDANCE", "zeroinflatednbinomial1",
-                "ABUNDANCE", "nbinomial",
-                "ABUNDANCE", "zeroinflatedpoisson0",
-                "ABUNDANCE", "poisson"
-                )
-        )
+    ## lookup <- tribble(~VARIABLE, ~sub_variable,
+    ##                   "Coral Trout", "ABUNDANCE",
+    ##                   "Coral Trout", "Biomass",
+    ##                   "Secondary targets", "ABUNDANCE",
+    ##                   "Secondary targets", "Biomass",
+    ##                   "Large fishes", "ABUNDANCE",
+    ##                   "Damselfishes", "ABUNDANCE",
+    ##                   "Harvested", "ABUNDANCE",
+    ##                   "Herbivores", "ABUNDANCE",
+    ##                   "Total fishes", "ABUNDANCE"
+    ##                   ) |>
+    ##   full_join(
+    ##     tribble(~sub_variable, ~model_type,
+    ##             "Biomass", "tweedie",
+    ##             "ABUNDANCE", "zeroinflatednbinomial1",
+    ##             "ABUNDANCE", "nbinomial",
+    ##             "ABUNDANCE", "zeroinflatedpoisson0",
+    ##             "ABUNDANCE", "poisson"
+    ##             )
+    ##     )
     dat <- dat |>
-      full_join(lookup) |> 
+      ## full_join(lookup) |> 
       ## crossing(model_type = c("zeroinflatednbinomial1", "nbinomial",
       ##                         "zeroinflatedpoisson0", "poisson")) |> 
-      mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type, sub_variable),
-                          .f = ~ ltmp__fit_inla_fish(..1, ..2, ..3, ..4, type = ..5, sub_variable = ..6)
+      mutate(model = pmap(.l = list(data_group, newdata, form, label, family_type),
+                          .f = ~ ltmp__fit_inla_fish(..1, ..2, ..3, ..4, family_type = ..5)
                           ))
     dat
   },
@@ -1471,8 +1636,14 @@ ltmp_fit_inla_fish <- function(dat) {
   return(dat)
 }
 
-ltmp__fit_inla_fish <- function(dat, newdata, form, label, type = "zeroinflatednbinomial1", sub_variable) {
-  label <- paste0(DATA_PATH, "modelled/", label, "_", type, "_", sub_variable, ".rds")
+ltmp__fit_inla_fish <- function(dat, newdata, form, label, family_type = "deltagamma") {
+  ## ensure that there are non-na response values in the data
+  resp <- form[[2]]
+  if (length(na.omit(dat[[resp]])) == 0) return("")
+
+  ## label <- paste0(DATA_PATH, "modelled/", label, "_", type, "_", sub_variable, ".rds")
+  label <- paste0(DATA_PATH, "modelled/", label, ".rds")
+  
   print(label)
   environment(form) <- new.env()
   data_pred <- dat |>
@@ -1492,24 +1663,96 @@ ltmp__fit_inla_fish <- function(dat, newdata, form, label, type = "zeroinflatedn
   ## out which combinations to apply the stronger priors...
   form <- convert_to_cellmeans(form)
   priors <- make_strong_priors(dat)
-  ## if (type == "binomial") {
-  set.seed(123)
-  mod.inla <- try({
-    inla(form,
-         data = data_pred,
-         family = type,
-         control.family = list(link="log"),
-         control.predictor = list(link = 1, compute = TRUE),
-         control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
-         control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE, config = TRUE)
-         )
-  }, silent = TRUE
-  )
-  ## }
-  if (inherits(mod.inla, "try-error")) {
-    return("")
-  }else {
-    saveRDS(mod.inla, file = label)
-    return(label)
+  if (family_type == "gamma") { # Biomass models
+    priors <- make_strong_priors(dat, VAR = "Biomass")
+    data_pred <- dat |>
+      mutate(Biomass = Biomass + min(Biomass[Biomass>0])/10) |> 
+      bind_rows(newdata) 
   }
-}
+  ## if (type == "binomial") {
+  ## if (family_type == "tweedie") inla.setOption(inla.timeout = 60)
+
+  ## if (family_type != "deltagamma") {  # Abundance/density models
+    ## Start 
+    set.seed(123)
+    mod.inla <- try({
+      inla(form,
+           data = data_pred,
+           family = family_type,
+           control.family = list(link="log"),
+           control.predictor = list(link = 1, compute = TRUE),
+           control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+           control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE, config = TRUE),
+           ## silent = TRUE
+           silent = 1L,
+           verbose = FALSE
+           ) 
+    }, silent = TRUE
+    )
+    ## inla.setOption(inla.timeout = 0)
+    ## }
+    if (inherits(mod.inla, "try-error")) {
+      return("")
+    }else {
+      saveRDS(mod.inla, file = label)
+      return(label)
+    }
+  }
+
+  ## if (family_type == "deltagamma") {  # Biomass models
+  ##   ## Biomass is the product of two processes 1) a binomial process that
+  ##   ## determines whether the fish are observed and 2) a positive
+  ##   ## continuous process based on density and fish size. This makes it
+  ##   ## awkward to model.extract. The traditional approach is called the
+  ##   ## Delta-gamma model in which separate binomial and gamma models are
+  ##   ## respectively fitted to bernoulli and zero exclusion version of the
+  ##   ## response and the posteriors are combined.
+
+  ##   ## Start with binomial 
+  ##   data_pred  <- dat |> mutate(Biomass = as.numeric(Biomass > 0)) |> 
+  ##     bind_rows(newdata) 
+  ##   priors <- make_strong_priors(dat |> mutate(Biomass = as.numeric(Biomass > 0)), VAR = "Biomass")
+  ##   set.seed(123)
+  ##   mod.inla.b <- try({
+  ##     inla(form,
+  ##          data = data_pred,
+  ##          family = "binomial",
+  ##          control.family = list(link="logit"),
+  ##          control.predictor = list(link = NA, compute = TRUE),
+  ##          ## control.predictor = list(link = 1, compute = TRUE),
+  ##          ## control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+  ##          control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE, config = TRUE),
+  ##          ## silent = TRUE
+  ##          silent = 1L,
+  ##          verbose = FALSE
+  ##          ) 
+  ##   }, silent = TRUE
+  ##   )
+  ##   ## inla.setOption(inla.timeout = 0)
+  ##   ## }
+  ##   if (inherits(mod.inla.b, "try-error")) {
+  ##     return("")
+  ##   }else {
+  ##     ## Start with binomial 
+  ##     set.seed(123)
+  ##     data_pred <- dat |> filter(Biomass != 0) |> bind_rows(newdata)
+  ##     priors <- make_strong_priors(dat |> filter(Biomass != 0), VAR = "Biomass") 
+  ##     mod.inla.g <- try({
+  ##       inla(form,
+  ##            data = data_pred, 
+  ##            family = "gamma",
+  ##            control.family = list(link="log"),
+  ##            control.predictor = list(link = 1, compute = TRUE),
+  ##            control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+  ##            control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE, config = TRUE),
+  ##            ## silent = TRUE
+  ##            silent = 1L,
+  ##            verbose = FALSE
+  ##            ) 
+  ##     }, silent = TRUE
+  ##     )
+
+  ##     saveRDS(mod.inla.b, file = label)
+  ##     return(label)
+  ##   }
+  ## }

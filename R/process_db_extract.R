@@ -632,5 +632,139 @@ if (data_type == "fish" & purpose == "make_reefs") {
   cat("Done!\n")
 }
 
+if (data_type == "fish" & purpose == "make_nrm") {
+  cat("Start preparing NRMs for modelling\n=============================================\n")
+  if (1 == 1) {
+    cat("Read in extracted data\n")
+    fish <- readRDS(file = paste0(rds_file))
+    fish_codes <- read_csv(gsub("fish.rds", "fish_codes.csv", rds_file))
+    cat("Nest data\n")
+    print(colnames(fish))
+    fish_nrm <- fish |>
+      group_by(NRM_REGION) |>
+      nest() |>
+      mutate(data = map2(.x = data, .y = NRM_REGION,
+                         .f = ~ .x |>
+                           ## mutate(NRM_REGION = .y) |> 
+                           dplyr::select(P_CODE,
+                                         CRUISE_CODE,
+                                         REEF_NAME,
+                                         AIMS_REEF_NAME,
+                                         REEF_ZONE,
+                                         RAP_REEF_PAIR,
+                                         RAP_OPEN_CLOSED,
+                                         SECTOR,
+                                         LATITUDE,
+                                         LONGITUDE,
+                                         SITE_NO, TRANSECT_NO,
+                                         REPORT_YEAR,
+                                         SURVEY_DATE,
+                                         FAMILY, FISH_CODE,
+                                         LENGTH, ABUNDANCE,
+                                         GENUS,
+                                         SHELF)
+                         ))  |> 
+      mutate(path = map(.x = NRM_REGION,
+                        .f =  ~ {
+                          paste0(rds_path, "/fish",
+                                 "/2021-01-14/process/ALL/2024/", .x, "/nrm/",
+                                 .x,
+                                 "/raw/")                       
+                        }
+                        ))  |> 
+      mutate(system = map2(.x = NRM_REGION, .y = path,
+                           .f =  ~ {
+                             .y <- gsub("\\.\\./\\.\\.", "", .y)
+                             paste0('docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript home/Project/R/00_main.R --path="', .y, 'reef_data.zip"  --method=fish --domain="', .x, '" --scale=nrm --status=true --refresh_data=false')
+                           }
+                           ))
+    cat("Save nested data\n")
+    saveRDS(fish_nrm, file = paste0(rds_path, '/fish_nrm.rds'))
+  }
+  cat("Write individual csv and zips\n")
+  fish_nrm <- readRDS(file = paste0(rds_path, '/fish_nrm.rds'))
+  ## print(fish_reefs$AIMS_REEF_NAME |> unique())
+  pwalk(.l = list(fish_nrm$data, fish_nrm$path),
+        .f =  ~ {
+          if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
+          write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
+          zip(zipfile = paste0(.y, "reef_data.zip"),
+              files = paste0(.y, "reef_data.csv"),
+              flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
+          print(.y)
+          write(.y, file = make_log, append = TRUE)
+          ## write(dir.exists(.y), file = make_log, append = TRUE)
+        })
+  cat("Done!\n")
+}
+
+if (data_type == "fish" & purpose == "make_sectors") {
+  cat("Start preparing Sectors for modelling\n=============================================\n")
+  if (1 == 1) {
+    cat("Read in extracted data\n")
+    fish <- readRDS(file = paste0(rds_file))
+    cat("Nest data\n")
+    ## print(colnames(fish))
+    fish_sector <- fish |>
+      ## dplyr::rename(SECTOR = A_SECTOR) |> 
+      group_by(SECTOR) |>
+      nest() |>
+      mutate(data = map2(.x = data, .y = SECTOR,
+                         .f = ~ .x |>
+                           mutate(SECTOR = .y) |> 
+                           dplyr::select(P_CODE,
+                                         CRUISE_CODE,
+                                         REEF_NAME,
+                                         AIMS_REEF_NAME,
+                                         REEF_ZONE,
+                                         RAP_REEF_PAIR,
+                                         RAP_OPEN_CLOSED,
+                                         SECTOR, 
+                                         LATITUDE, LONGITUDE,
+                                         SITE_NO, TRANSECT_NO,
+                                         REPORT_YEAR,
+                                         SURVEY_DATE,
+                                         FAMILY, FISH_CODE,
+                                         LENGTH, ABUNDANCE,
+                                         GENUS,
+                                         SHELF)
+                         )) |>
+      mutate(path = map(.x = SECTOR,
+                        .f =  ~ {
+                          paste0(rds_path, "/fish",
+                                 "/2021-01-14/process/ALL/2024/", .x, "/Sectors/",
+                                 .x,
+                                 "/raw/")                       
+                        }
+                        ))  |> 
+      mutate(system = map2(.x = SECTOR, .y = path,
+                           .f =  ~ {
+                             .y <- gsub("\\.\\./\\.\\.", "", .y)
+                             paste0('docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript home/Project/R/00_main.R --path="', .y, 'reef_data.zip"  --method=fish --domain="', .x, '" --scale=Sectors --status=true --refresh_data=false')
+                           }
+                           ))
+    cat("Save nested data\n")
+    saveRDS(fish_sector, file = paste0(rds_path, '/fish_sector.rds'))
+  }
+  cat("Write individual csv and zips\n")
+  fish_sector <- readRDS(file = paste0(rds_path, '/fish_sector.rds'))
+  ## print(pt_reefs$AIMS_REEF_NAME |> unique())
+  pwalk(.l = list(fish_sector$data, fish_sector$path),
+        .f =  ~ {
+          if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
+          write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
+          zip(zipfile = paste0(.y, "reef_data.zip"),
+              files = paste0(.y, "reef_data.csv"),
+              flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
+          print(.y)
+          write(.y, file = make_log, append = TRUE)
+          ## write(dir.exists(.y), file = make_log, append = TRUE)
+        })
+  cat("Done!\n")
+}
 ## restore umask
 system("umask 0022")

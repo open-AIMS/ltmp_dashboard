@@ -691,7 +691,8 @@ ltmp_lookup_h_fish <- function(data) {
   {
     lookup_h <- data |>
       mutate(Group = ifelse(FAMILY %in%
-                            c("Acanthuridae", "Scarinae", "Siganidae"),
+                            c("Acanthuridae", "Scarinae", "Siganidae") &
+                           !FISH_CODE %in% c("ACA.ALBI", "ACA.MATA", "ACA.THOM", "PCT.HEPA"),
                             "Herbivores",
                      ifelse(FAMILY %in%
                             c("Labridae", "Lethrinidae", "Lutjanidae", "Serranidae"),
@@ -830,10 +831,12 @@ ltmp_process_trout_fish <- function(data, data_sum) {
                 filter(Trophic %in% c("Coral Trout", "Secondary targets"),
                        REPORT_YEAR>1996) |>    # CHECK THIS!!!
                 droplevels() |>
+                mutate(fGROUP = FAMILY) |> 
                 group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
-                         REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group) |>
+                         REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP) |>
                 summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE),
-                          Biomass = sum(BIOMASS, na.rm = TRUE)) |>
+                          ## Biomass = sum(BIOMASS, na.rm = TRUE)) |>
+                          Biomass = sum(BIOMASS, na.rm = TRUE)/1000) |>   ## Express in kg rather than g to help the model
                 ungroup()
                 )
   },

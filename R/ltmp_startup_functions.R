@@ -93,8 +93,12 @@ ltmp_parse_cla <- function(args) {
             status::add_setting(element = "domain_name", item = DOMAIN_NAME, name = "Domain name")
             DATA_METHOD <- gsub('[^/]*//[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
             status::add_setting(element = "data_method", item = DATA_METHOD, name = "Data type")
+            DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
+            status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
           } else  {           ## local copy
             status::add_setting(element = "data_from", item = "local copy", name = "Data source")
+            DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
+            status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
           }
         } else {                     #we will have to go to the AIMS database
             status::add_setting(element = "data_from", item = "sql", name = "Data source")

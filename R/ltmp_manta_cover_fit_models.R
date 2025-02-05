@@ -4,7 +4,7 @@ if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
 
-for (s in  str_subset(status_$status[[4]]$items, "_pt$|_juv$"))
+for (s in  str_subset(status_$status[[4]]$items, "_pt$|_juv$|_fish$"))
   status::remove_status_item(stage = 4, item = s)
 
 #######################################################################
@@ -16,10 +16,15 @@ data <- ltmp_load_processed_data_pt()
 #######################################################################
 ## Create the nested tibble                                          ##
 #######################################################################
-data <- 
-  data |>
-  group_by(VARIABLE) |>
-  nest()
+model_lookup <- tribble(
+  ~data_type, ~VARIABLE, ~model_type, ~model_response, ~sub_model, ~ylab, ~scale,
+  "manta", NA, "Cover", "Cover", NA, "Percent cover", scales::label_percent(),
+  ) |>
+  dplyr::select(-VARIABLE) |> 
+  crossing(VARIABLE = unique(data$VARIABLE)) |> 
+  crossing(family_type = c("beta"))
+
+data <- data |> ltmp_nested_table(model_lookup)
 
 #######################################################################
 ## Make formula                                                      ##
@@ -59,7 +64,7 @@ data <- data |> ltmp_update_formula()
 ## to include in the formula based on the data_method and the number ##
 ## of levels of each factor                                          ##
 #######################################################################
-data <- data |> ltmp_prepare_variables(VAR = "Cover")
+data <- data |> ltmp_prepare_variables()
 
 #######################################################################
 ## Generate the newdata (data containing the levels of the factors   ##
@@ -103,6 +108,14 @@ data <- data |> ltmp_fit_inla_manta()
 #######################################################################
 data <- data |> ltmp_get_model_posteriors()
 
+#######################################################################
+## For each VARIABLE, select the "best" candidate model.  This could ##
+## be done in a number of different ways.  The simplest is just to   ##
+## determine which model has median values closest to the simple     ##
+## raw means                                                         ##
+#######################################################################
+data <- data |> ltmp_choose_model()
+
 filenm <- str_replace(data$label[[1]], "([^_]*_[^_]*_[^_]*)_.*", "\\1")
 saveRDS(data, file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
 
@@ -110,7 +123,7 @@ saveRDS(data, file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
 ## Generate a plot that compares cellmeans from raw and each model   ##
 ## Figures saved in DATA_PATH/modelled/gg*.png                       ##
 #######################################################################
-data_compare <- data |> ltmp_compare_models()
+data_compare <- data |> ltmp_compare_models(model_lookup)
 ## data_group_compare <- data |> ltmp_group_compare_models()
 
 #######################################################################
@@ -118,5 +131,5 @@ data_compare <- data |> ltmp_compare_models()
 ## along with raw means and medians conditional on spatial           ##
 ## Figures saved in DATA_PATH/modelled/gg_raw_summ_*.png             ##
 #######################################################################
-raw_summary_plots <- data |> ltmp_raw_summary_plots()
+raw_summary_plots <- data |> ltmp_raw_summary_plots(model_lookup)
 ## raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots()
