@@ -22,7 +22,7 @@ RUN R -e "options(repos = \
 
 #RUN git clone https://github.com/AIMS/LTMP_web_reporting.git
 
-RUN mkdir /home/analysis
+RUN mkdir -p /home/analysis /home/Project/R
 
 COPY R/ /home/analysis/R/
 COPY data/ /home/analysis/data/
