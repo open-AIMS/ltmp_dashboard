@@ -1,4 +1,4 @@
-name: Create and publish the dev Docker image
+name: Create and publish the 5631 Docker image
 
 on:
   workflow_dispatch:
