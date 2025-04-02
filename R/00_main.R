@@ -18,7 +18,7 @@ setwd("/home/Project/R")
 
 
 ## Remove the following and replace with pulling from a repo
-system("cp -r /data/spatial ../data/spatial")
+#system("cp -r /data/spatial ../data/spatial")
 
 
 
