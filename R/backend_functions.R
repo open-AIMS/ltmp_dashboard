@@ -5,6 +5,7 @@
 ## If no, get those info from the data structures
 ## Filter the entries to relevant candidates
 get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
+  ## alert("here")
   if(!does_db_table_exist("models")) {
     models <- get_config_models() |>
         filter(data_type %in% data_types,
@@ -12,13 +13,15 @@ get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
                !is.na(path))
   } else {
     models <- get_db_model_data(method = NULL, scale = scale, domain = domain)
-    ## write_csv(models, file = paste0(config_$data_path, "candidate_models_1.csv")) 
     ## narrow to only those with a path, and of the correct data_type/method
     if (!is.null(models))
       models <- models |>
         filter(data_type %in% data_types,
                data_scale == scale,
                !is.na(path))
+    ## alert(scale)
+    ##   alert(unique(models$data_scale))
+    ## write_csv(models, file = paste0("~/data/", "candidate_models_1.csv")) 
 
     ## write_csv(models, file = paste0(config_$data_path, "candidate_models_2.csv")) 
   }
@@ -36,6 +39,18 @@ get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
     ##        data_type == reefs_tab_lookup[[tab_name]]$data_type)
   ## write_csv(current_candidates, file = paste0(config_$data_path, "candidate_models.csv")) 
   current_candidates
+}
+
+extract_db_cases <- function(table_name, d_name) {
+  if(does_db_table_exist(table_name)) {
+    con <- dbConnect(RSQLite::SQLite(), config_$db_path)
+    data <- tbl(con, table_name) |>
+      filter(domain_name %in% d_name) |> 
+      collect() ##|> 
+
+    dbDisconnect(con)
+    return(data)
+  }
 }
 
 blank_candidate_models <- function() {

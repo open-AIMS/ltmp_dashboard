@@ -1,6 +1,6 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
-source("ltmp_write_functions.R")
+## source("ltmp_write_functions.R")
 source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
@@ -14,6 +14,8 @@ for (s in  str_subset(status_$status[[4]]$items, "_pt$|_manta$|_juv$"))
 ## There is two processing steps done at this stage.                 ##
 #######################################################################
 data <- ltmp_load_processed_data_pt()
+
+data <- data |> mutate(sub_model = fish_sub)
 
 #######################################################################
 ## Create the nested tibble                                          ##
@@ -32,7 +34,12 @@ model_lookup <- tribble(
   dplyr::select(-VARIABLE) |> 
   crossing(VARIABLE = unique(data$VARIABLE)) |>
   dplyr::filter(!(VARIABLE %in% c("Damselfishes", "Total fishes", "Harvested", "Herbivores") &
-                model_type == "Biomass"))
+                  model_type == "Biomass")) |>
+  dplyr::select(-sub_model) |>
+  full_join(data |>
+            dplyr::select(sub_model, VARIABLE) |>
+            distinct()
+            )
 
 data <- data |>
   ## the fish data does not have fDEPTH, yet it needs to be there for

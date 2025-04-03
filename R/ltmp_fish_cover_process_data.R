@@ -33,6 +33,15 @@ data_spatial <- ltmp_spatial_domain(data)
 ##################################################################################
 data <- ltmp_calc_density_fish(data)
 
+
+##################################################################################
+## Determine whether each fish is a newly monitored taxa or a traditionally     ##
+## monitored taxa (OLD_FISH: TRUE).  This is done based on the list of          ##
+## FISH_CODE in:                                                                ##
+## ../data/parameters/traditional_fish.csv                                      ##
+##################################################################################
+data <- ltmp_old_new_fish(data)
+
 ###################################################################################
 ## Generate a reference lookup to determine the major (top 6) groups (GENUS for  ##
 ## Pomacentridae/Damselfishes, otherwise FAMILY) and group all the minor groups  ##
@@ -54,7 +63,7 @@ lookup_sizes <- ltmp_lookup_sizes_fish(data)
 lookup_h <- ltmp_lookup_h_fish(data)
 
 ###################################################################################
-## Sum the abundances for the Harvested and Herbivore groups                     ##
+## Sum the abundances for the Large fishes and Damselfishes                      ##
 ###################################################################################
 data_sum <- ltmp_process_sizes_fish(data, lookup_sizes)
 

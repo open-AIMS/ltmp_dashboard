@@ -3,15 +3,19 @@
 ltmp_prepare_export <- function(dat, model_lookup) {
   status::status_try_catch(
   {
-  dat |>
+  dat <- dat |>
+    ## add units to data
     left_join(model_lookup |>
               dplyr::select(VARIABLE, model_type,
-                            model_response, .units = ylab),
-              by = c("VARIABLE", "model_type", "model_response")
+                            model_response, .units = ylab, sub_model) |>
+             distinct(),
+              by = c("VARIABLE", "model_type", "model_response", "sub_model")
               ) |> 
     dplyr::filter(selected) |> 
-    dplyr::select(VARIABLE, model_response, posteriors, .units, splits, model_type) |>
-    mutate(export = pmap(.l = list(posteriors, .units, splits, VARIABLE, model_type),
+    dplyr::select(VARIABLE, model_response, posteriors, .units, splits,
+                  model_type, sub_model) |>
+    mutate(export = pmap(.l = list(posteriors, .units, splits, VARIABLE,
+                                   model_type, sub_model),
                         .f =  ~ {
                           ## data_group <- ..1
                           posteriors <- ..1
@@ -19,7 +23,8 @@ ltmp_prepare_export <- function(dat, model_lookup) {
                           splits <- ..3
                           VARIABLE <- ..4
                           model_type <- ..5
-                          export <- ltmp__prepare_export(posteriors, .units, splits, VARIABLE, model_type)            
+                          sub_model <- ..6
+                          export <- ltmp__prepare_export(posteriors, .units, splits, VARIABLE, model_type, sub_model)            
                           export
                         }
                         )) |>
@@ -35,7 +40,7 @@ ltmp_prepare_export <- function(dat, model_lookup) {
   return(dat)
 }
 
-ltmp__prepare_export <- function(posteriors, .units, splits, VARIABLE, model_type) {
+ltmp__prepare_export <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
   export <- posteriors$year_sum |>
     mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
   if (status::get_setting(element = "data_scale") == "reef") {
@@ -61,11 +66,12 @@ ltmp__prepare_export <- function(posteriors, .units, splits, VARIABLE, model_typ
       DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
       DATA_TYPE = model_type,
       DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
-      UNITS = .units) |>
+      UNITS = .units,
+      SUB_MODEL = sub_model) |>
     dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
                   DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
                   REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
-                  VARIABLE,
+                  VARIABLE, SUB_MODEL,
                   mean, median, lower, upper) |> 
     filter(!is.na(median)) |> 
     droplevels()
