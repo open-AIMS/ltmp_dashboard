@@ -137,9 +137,11 @@ ltmp_parse_cla <- function(args) {
                           item = TRUE,
                           name = "Display status")
     ## reset the logfile directory - so that it is constantly being written back to the bucket
+    print(paste("AWS_PATH =", AWS_PATH))
     assign("aws_out_path", paste0(AWS_PATH, "output/"), envir = .GlobalEnv)
     if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
     log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
+    print(paste("log_file = ", log_file))
     if (!file.exists(log_file)) file.create(log_file)
     if (file.exists(log_file)) unlink(log_file)
     assign("log_file", log_file, envir = .GlobalEnv)
@@ -266,7 +268,7 @@ ltmp_check_packages <- function() {
     options(tidyverse.quiet = TRUE)
     pkgs <- c(
       "tidyverse", "sf", "ggspatial", "INLA", "knitr", "broom.mixed",
-      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon"
+      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon", "furrr", "future"
       ## "testthat",
       ## "rnaturalearth", "rnaturalearthdata", "patchwork", "ggnewscale",
       ## "inlabru", "cli", "stars", "geojsonR", "geojsonsf", "s2",
