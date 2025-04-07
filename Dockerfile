@@ -18,7 +18,7 @@ RUN R -e "options(repos = \
 RUN R -e "options(repos = \
   # list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2022-10-10/')); \
   list(CRAN = 'https://packagemanager.posit.co/cran/2022-10-11/')); \
-  remotes::install_github('open-AIMS/status', ref = 'adapt', force = TRUE)"
+  remotes::install_github('open-AIMS/status', ref = 'main', force = TRUE)"
 
 #RUN git clone https://github.com/AIMS/LTMP_web_reporting.git
 
