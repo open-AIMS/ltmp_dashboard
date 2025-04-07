@@ -35,11 +35,11 @@ model_lookup <- tribble(
   crossing(VARIABLE = unique(data$VARIABLE)) |>
   dplyr::filter(!(VARIABLE %in% c("Damselfishes", "Total fishes", "Harvested", "Herbivores") &
                   model_type == "Biomass")) |>
-  dplyr::select(-sub_model) |>
-  full_join(data |>
-            dplyr::select(sub_model, VARIABLE) |>
-            distinct()
-            )
+  dplyr::select(-sub_model) #|>
+  ## full_join(data |>
+  ##           dplyr::select(sub_model, VARIABLE) |>
+  ##           distinct()
+  ##           )
 
 data <- data |>
   ## the fish data does not have fDEPTH, yet it needs to be there for

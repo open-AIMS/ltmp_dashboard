@@ -7,9 +7,9 @@ ltmp_prepare_export <- function(dat, model_lookup) {
     ## add units to data
     left_join(model_lookup |>
               dplyr::select(VARIABLE, model_type,
-                            model_response, .units = ylab, sub_model) |>
+                            model_response, .units = ylab) |>
              distinct(),
-              by = c("VARIABLE", "model_type", "model_response", "sub_model")
+              by = c("VARIABLE", "model_type", "model_response")
               ) |> 
     dplyr::filter(selected) |> 
     dplyr::select(VARIABLE, model_response, posteriors, .units, splits,
