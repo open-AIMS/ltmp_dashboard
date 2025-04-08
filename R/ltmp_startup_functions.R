@@ -221,6 +221,7 @@ ltmp_generate_other_settings <- function() {
     ## Location of folder to store R data objects
     assign("DATA_PATH", "../data/", envir = globalenv())
     if (!dir.exists(DATA_PATH)) dir.create(DATA_PATH)
+    status::add_setting(element = "data_path", item = DATA_PATH, name = "Local data path")
 
     ## Define the name of the input benthic data
     assign("INPUT_DATA", "reef_data.zip", envir = globalenv())
