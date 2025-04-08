@@ -260,8 +260,6 @@ ltmp_assign_spatial_domain_shelf_from_database <- function(data, data.shelf) {
 }
 
 
-
-
 ltmp_split_ma <- function(data) {
   status::status_try_catch(
   {
@@ -373,7 +371,7 @@ ltmp_save_data_pt <- function(data) {
   save(data,  file = paste0(DATA_PATH, "processed/", RDATA_FILE))
   write_csv(data |> dplyr::select(-fYEAR),  file = paste0(DATA_PATH, "processed/", CSV_FILE))
   if (status::get_setting(element = "data_from") == "AWS")
-    write_aws(file = CSV_FILE,  level = "processed/")
+    write_aws(file = paste0("processed_", CSV_FILE), catalog_file = TRUE)
   },
   stage_ = 3,
   order_ = 7,
