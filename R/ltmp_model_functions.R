@@ -17,12 +17,12 @@ ltmp_nested_table <- function(data, model_lookup) {
   status::status_try_catch(
   {
     data <- data |>
-      group_by(VARIABLE) |>
+      group_by(VARIABLE, sub_model) |>
       nest() |>
       full_join(model_lookup |>
-                dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model),
+                dplyr::select(VARIABLE, model_type, family_type, model_response),
                 by = "VARIABLE") |>
-      dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model, everything())
+      dplyr::select(VARIABLE, model_type, family_type, model_response, everything())
   },
   stage_ = 4,
   order_ = 1,
@@ -541,10 +541,12 @@ ltmp__fit_inla_pt <- function(dat, newdata, form, label, type = "binomial") {
 ltmp_get_model_posteriors <- function(dat) {
   status::status_try_catch(
   {
-  dat <- dat |>
-    mutate(posteriors = map2(.x = data_group, .y = model,
-                             .f = ~ get_model_posteriors(.y, .x)
-                             ))
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
+    dat <- dat |>
+      mutate(posteriors = future_map2(.x = data_group, .y = model,
+                                      .f = ~ get_model_posteriors(.y, .x)
+                                      ))
     dat
   },
   stage_ = 4,
@@ -787,13 +789,15 @@ mean_median_hdci <- function(.data, ...) {
 ltmp_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     dat_compare <-
       dat |>
       left_join(model_lookup |>
                 dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
                 by = c("VARIABLE", "model_type", "family_type")) |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = family_type,
+               future_map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_sum |>
@@ -806,17 +810,25 @@ ltmp_compare_models <- function(dat, model_lookup) {
       ##       else .x
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
-      dplyr::select(VARIABLE, splits, label, raw_sum, compare_models, ylab, scale) |>
+      dplyr::select(VARIABLE, sub_model, splits, label, raw_sum, compare_models, ylab, scale, selected) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, raw_sum, ylab, scale) |>
+      ## group_by(VARIABLE, sub_model, splits, label, raw_sum, ylab, scale) |>
+      ## group_by(VARIABLE, sub_model, splits, ylab, scale) |>
+      group_by(VARIABLE, sub_model, splits, ylab) |> 
       nest() |>
-      mutate(gg = pmap(.l = list(data, raw_sum, label, ylab, scale),
+      ## mutate(gg = future_pmap(.l = list(data, raw_sum, label, ylab, scale),
+      mutate(gg = future_pmap(.l = list(data, ylab),
                        .f =  ~ {
                          data <- ..1
-                         raw_sum <- ..2
-                         lab <- ..3
-                         ylab <- ..4
-                         yscale <- ..5
+                         raw_sum <- data$raw_sum[[1]] #unique(data$raw_sum) #..2
+                         lab <- unique(data$label)
+                         ylab <- ..2 #..4
+                         yscale <- unique(data$scale)[[1]] #..5
+
+                         data <- data |>
+                           mutate(family_type = ifelse(selected,
+                                                       paste0("*", family_type, "*"),
+                                                       family_type))
                          ## lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
                          ##                   "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
                          ##                   "manta", NA, NA, "Percent cover", scales::label_percent(),
@@ -843,7 +855,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
                            geom_line(data = raw_sum,
                                      aes(y = Median, x = as.numeric(as.character(fYEAR)),
                                          colour = "Raw median")) +
-                           facet_grid(~family_type) +
+                           facet_wrap(~family_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                                ## scale_y_continuous(ylab, label = scales::label_percent())
@@ -869,6 +881,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
 ltmp_group_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    plan(multicore, workers = parallelly::availableCores() - 1)
     if (status::get_setting(element = "data_scale") == "reef") {
     dat_group_compare <-
       dat |>
@@ -878,7 +891,7 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
       dplyr::filter(model_type != "Biomass") |>
       droplevels() |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = family_type,
+               future_map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_group_sum |>
@@ -891,11 +904,12 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
       ##       else .x
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
-      dplyr::select(VARIABLE, splits, label, data_group, compare_models, ylab, scale) |>
+      dplyr::filter(selected) |> 
+      dplyr::select(VARIABLE, sub_model, splits, label, data_group, compare_models, ylab, scale) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, data_group, ylab, scale) |>
+      group_by(VARIABLE, sub_model, splits, label, data_group, ylab, scale) |>
       nest() |>
-      mutate(gg = pmap(.l = list(data, data_group, label, ylab, scale),
+      mutate(gg = future_pmap(.l = list(data, data_group, label, ylab, scale),
                        .f =  ~ {
                          data <- ..1
                          data_group <- ..2
@@ -959,6 +973,9 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
 ltmp_raw_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     raw_plots <-
       dat  |>
       left_join(model_lookup |>
@@ -971,7 +988,7 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
       mutate(gg =
-               pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
+               future_pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
                     .f = ~ {
                       data_group <- ..1
                       raw_sum <- ..2
@@ -1060,6 +1077,9 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
 ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     if (status::get_setting(element = "data_scale") == "reef" &
         status::get_setting(element = "data_method") != "manta") {
       raw_group_plots <-
@@ -1074,7 +1094,7 @@ ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
         ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
         mutate(gg =
-                 pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
+                 future_pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
                       .f = ~ {
                         data_group <- ..1
                         raw_sum <- ..2

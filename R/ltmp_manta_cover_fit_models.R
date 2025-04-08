@@ -12,7 +12,7 @@ for (s in  str_subset(status_$status[[4]]$items, "_pt$|_juv$|_fish$"))
 ## Load the processed data in preparaton for model fitting.          ##
 ## There is two processing steps done at this stage.                 ##
 #######################################################################
-data <- ltmp_load_processed_data_pt()
+data <- ltmp_load_processed_data_pt() |> mutate(sub_model = NA)
 
 #######################################################################
 ## Create the nested tibble                                          ##
@@ -23,7 +23,8 @@ model_lookup <- tribble(
   ) |>
   dplyr::select(-VARIABLE) |> 
   crossing(VARIABLE = unique(data$VARIABLE)) |> 
-  crossing(family_type = c("beta"))
+  crossing(family_type = c("beta")) |>
+  dplyr::select(-sub_model)
 
 data <- data |> ltmp_nested_table(model_lookup)
 

@@ -661,6 +661,33 @@ ltmp_calc_density_fish <- function(data) {
   return(data)  
 }
 
+ltmp_old_new_fish <- function(data) {
+  status::status_try_catch(
+  {
+    old_fish_lookup <- read_csv("../data/parameters/traditional_fish.csv")
+    data_fish_codes <- data |> pull(FISH_CODE) |> unique()
+    old_fish_codes <- old_fish_lookup |> pull(FISH_CODE) |> unique()
+    new_fish_codes <- data_fish_codes[!data_fish_codes %in% old_fish_codes]
+    data <- data |>
+      mutate(OLD_FISH = ifelse(FISH_CODE %in% old_fish_codes, TRUE, FALSE))
+    data_old <- data |>
+      filter(OLD_FISH) |>
+      mutate(fish_sub = "restricted") |>
+      dplyr::select(-OLD_FISH)
+    data_new <- data |>
+      filter(REPORT_YEAR >= 2022) |>
+      mutate(fish_sub = "expanded") |>
+      dplyr::select(-OLD_FISH)
+    data <- bind_rows(data_old, data_new)
+  },
+  stage_ = 3,
+  order_ = 3,
+  name_ = "Distinguish old/new fish",
+  item_ = "old_new_fish"
+  )
+  return(data)  
+}
+
 ltmp_lookup_sizes_fish <- function(data) {
   status::status_try_catch(
   {
@@ -668,11 +695,11 @@ ltmp_lookup_sizes_fish <- function(data) {
       mutate(Group = ifelse(FAMILY == "Pomacentridae",
                             "Damselfishes", "Large fishes"),
              tempGROUP = ifelse(Group=="Damselfishes", GENUS, FAMILY)) |>
-      group_by(Group, tempGROUP) |>
+      group_by(Group, tempGROUP, fish_sub) |>
       summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
       ungroup() |>
       group_by(Group) |>
-      arrange(Group,-Sum)  |>
+      arrange(Group, fish_sub, -Sum)  |>
       mutate(Common = 1:n()) |>
       mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
       ungroup() |>
@@ -703,13 +730,13 @@ ltmp_lookup_h_fish <- function(data) {
                                 FAMILY))
              ) |>
       dplyr::filter(Group != "Other") |>
-      group_by(Group, tempGROUP) |>
+      group_by(Group, tempGROUP, fish_sub) |>
       summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
       filter(!is.na(tempGROUP)) |>
       ## mutate(tempGROUP=ifelse(is.na(tempGROUP), "Other", tempGROUP)) |>
       ungroup() |>
-      group_by(Group) |>
-      arrange(Group, -Sum) |>
+      group_by(Group, fish_sub) |>
+      arrange(Group, fish_sub, -Sum) |>
       mutate(Common = 1:n()) |>
       mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
       ungroup() |>
@@ -737,11 +764,11 @@ ltmp_process_sizes_fish <- function(data, lookup_sizes) {
       mutate(tempGROUP = ifelse(Group=="Damselfishes", GENUS, FAMILY),
              ## we only want to group the fishes into subgroups if at reef level
              tempGROUP = if(status_$settings$data_scale$item == "reef") tempGROUP else NA) |>
-      left_join(lookup_sizes, by = c("Group", "tempGROUP")) |>
+      left_join(lookup_sizes, by = c("Group", "tempGROUP", "fish_sub")) |>
       dplyr::select(-tempGROUP) |>
       group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
                REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO,
-               Group, fGROUP) |>
+               Group, fGROUP, fish_sub) |>
       summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
       ungroup()
   },
@@ -764,7 +791,7 @@ ltmp_process_total_fish <- function(data, data_sum) {
     data_sum <- data_sum |>
       bind_rows(data |>
                 group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE, REPORT_YEAR,
-                         SURVEY_DATE, SITE_NO, TRANSECT_NO, FAMILY) |>
+                         SURVEY_DATE, SITE_NO, TRANSECT_NO, FAMILY, fish_sub) |>
                 summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
                 mutate(Group = "Total fishes", fGROUP = FAMILY)) |>
       dplyr::select(-FAMILY) |>
@@ -804,7 +831,7 @@ ltmp_process_h_fish <- function(data, lookup_h, data_sum) {
         left_join(lookup_h) |> #, by = c("Group", "tempGROUP")) |>
         mutate(fGROUP = ifelse(is.na(fGROUP), "Other", fGROUP)) |>
         group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
-                 REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP) |>
+                 REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP, fish_sub) |>
         summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
         ungroup()
       )
@@ -837,8 +864,9 @@ ltmp_process_trout_fish <- function(data, data_sum) {
                 summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE),
                           ## Biomass = sum(BIOMASS, na.rm = TRUE)) |>
                           Biomass = sum(BIOMASS, na.rm = TRUE)/1000) |>   ## Express in kg rather than g to help the model
-                ungroup()
-                )
+                ungroup() |> 
+                mutate(fish_sub = "restricted")
+                ) 
   },
   stage_ = 3,
   order_ = 9,

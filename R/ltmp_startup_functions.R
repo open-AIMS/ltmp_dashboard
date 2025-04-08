@@ -137,12 +137,22 @@ ltmp_parse_cla <- function(args) {
                           item = TRUE,
                           name = "Display status")
     ## reset the logfile directory - so that it is constantly being written back to the bucket
+    print(paste("AWS_PATH =", AWS_PATH))
     assign("aws_out_path", paste0(AWS_PATH, "output/"), envir = .GlobalEnv)
-    if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
-    log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
-    if (!file.exists(log_file)) file.create(log_file)
-    if (file.exists(log_file)) unlink(log_file)
-    assign("log_file", log_file, envir = .GlobalEnv)
+    if (status::get_setting("data_from") != "AWS") {
+      if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
+      log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
+      print(paste("log_file = ", log_file))
+      if (!file.exists(log_file)) file.create(log_file)
+      if (file.exists(log_file)) unlink(log_file)
+      assign("log_file", log_file, envir = .GlobalEnv)
+    } else {  ## if is AWS
+      log_file <- paste0(status::get_setting("status_dir"), "/", 
+                         status::get_setting("log_file"))
+      ## status::add_setting(element = "log_file", item = log_file, name = "Log filename")
+      assign("log_file", log_file, envir = .GlobalEnv)
+      
+    }
   },
   stage_ = 1,
   order_ = 1,
@@ -211,7 +221,7 @@ ltmp_generate_other_settings <- function() {
     ## Location of folder to store R data objects
     assign("DATA_PATH", "../data/", envir = globalenv())
     if (!dir.exists(DATA_PATH)) dir.create(DATA_PATH)
-    status::add_setting(element = "data_path", item = DATA_PATH, name = "Data path")
+    status::add_setting(element = "data_path", item = DATA_PATH, name = "Local data path")
 
     ## Define the name of the input benthic data
     assign("INPUT_DATA", "reef_data.zip", envir = globalenv())
@@ -266,7 +276,7 @@ ltmp_check_packages <- function() {
     options(tidyverse.quiet = TRUE)
     pkgs <- c(
       "tidyverse", "sf", "ggspatial", "INLA", "knitr", "broom.mixed",
-      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon"
+      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon", "furrr", "future"
       ## "testthat",
       ## "rnaturalearth", "rnaturalearthdata", "patchwork", "ggnewscale",
       ## "inlabru", "cli", "stars", "geojsonR", "geojsonsf", "s2",
