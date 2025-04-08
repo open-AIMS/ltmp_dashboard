@@ -74,7 +74,8 @@ commandline arguments of the following form (note, I have included
 linebreaks in the following to aid readability in this readme - do not
 included them when constructing a call to R):
 
-`Rscript 00_main.R \
+```
+Rscript 00_main.R \
   <s3 address>/<DATA_METHOD>/<DATE>/process/<DATA_PROGRAM>/<YEAR>/<CRUISE_CODE>/<DOMAIN_CATEGORY>/<DOMAIN_NAME>/raw/<filename>.csv \
   --file=<SCRIPT_NAME> \
   --path=<AWS_PATH> \
@@ -82,7 +83,8 @@ included them when constructing a call to R):
   --domain=<DOMAIN_NAME> \
   --scale=<DOMAIN_CATEGORY> \
   --status=<true|false> \
-  --refresh_data=<true|false>`
+  --refresh_data=<true|false>
+```
 
 where:
 
@@ -174,7 +176,8 @@ log).
 
 Here is an example of running inside a docker container.
 
-`docker run -i --rm \
+```
+docker run -i --rm \
   -v /etc/localtime:/etc/localtime \
   -v /etc/timezone:/etc/timezone \
   -v /home/mlogan/dev:/home/Project \
@@ -187,7 +190,8 @@ Here is an example of running inside a docker container.
   --domain=CA \
   --scale=Sectors \
   --status=true \
-  --refresh_data=false`
+  --refresh_data=false
+```
 
 It is also possible to directly call one of the child scripts in order
 to bypass earlier routines (which are assumed to have already run
