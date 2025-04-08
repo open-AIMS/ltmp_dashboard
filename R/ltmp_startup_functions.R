@@ -148,7 +148,7 @@ ltmp_parse_cla <- function(args) {
       assign("log_file", log_file, envir = .GlobalEnv)
     } else {  ## if is AWS
       log_file <- paste0(status::get_setting("status_dir"), "/", 
-                         status::get_getting("log_file"))
+                         status::get_setting("log_file"))
       ## status::add_setting(element = "log_file", item = log_file, name = "Log filename")
       assign("log_file", log_file, envir = .GlobalEnv)
       
