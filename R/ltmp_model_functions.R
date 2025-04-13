@@ -1204,6 +1204,49 @@ ltmp_choose_model <- function(dat) {
   return(comp)
 }
 
+ltmp_delete_non_selected_models <- function(data) {
+  status::status_try_catch(
+  {
+    file_str <- data |>
+      ungroup() |> 
+      dplyr::filter(!selected) |>
+      dplyr::select(label) |>
+      unnest(label) |>
+      pull(label)
+    ## Delete any unselected models and thier derivatives
+    if (length(file_str) > 0) {
+      file_str <- paste(paste0(file_str, ".*"), collapse =  "|")
+      files <- list.files(
+        path = paste0(
+          status::get_setting("data_path"),
+          "modelled/"
+        ),
+        pattern = file_str,
+        )
+      file.remove(
+        paste0(
+          status::get_setting("data_path"),
+          "modelled/", files
+        )
+      )
+    }
+    ## Delete the selected model (not derivatives) as well
+    files <- data |>
+      ungroup() |>
+      filter(selected) |>
+      dplyr::select(model) |>
+      unnest(model) |>
+      pull(model)
+    file.remove(files)
+  },
+  stage_ = 4,
+  order_ = 20,
+  name_ = "Delete excess models",
+  item_ = "delete_models"
+  )
+  return(invisible(NULL))
+}
+
 ## Juvenile specific functions
 
 ltmp_get_formula_juv <- function(data) {

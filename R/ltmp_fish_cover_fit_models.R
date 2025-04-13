@@ -174,4 +174,7 @@ raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots(model_lookup)
 data_export <- data |> ltmp_prepare_export(model_lookup)
 data_export |> ltmp_export_data()
 
-
+#######################################################################
+## Delete all the non-selected model candidates                      ##
+#######################################################################
+data |> ltmp_delete_non_selected_models()

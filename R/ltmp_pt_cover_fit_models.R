@@ -173,3 +173,8 @@ data_export |> ltmp_export_data()
 
 ## data$data[[6]] |>  filter(REEF == "Geoffrey Bay", SITE_NO == 1, TRANSECT_NO == 1, fYEAR == 2024, fDEPTH == 2) |> as.data.frame() |> head()
 
+
+#######################################################################
+## Delete all the non-selected model candidates                      ##
+#######################################################################
+data |> ltmp_delete_non_selected_models()
