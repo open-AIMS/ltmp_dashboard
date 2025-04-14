@@ -588,8 +588,8 @@ get_model_posteriors <- function(mod_str, data.group) {
   saveRDS(year_group_posteriors, file = year_group_posteriors_label)
   write_csv(year_group_posteriors |> dplyr::select(-fYEAR),
             file = gsub(".rds", ".csv", year_group_posteriors_label))
-  write_aws(filenm = basename(gsub(".rds$", ".csv", year_group_posteriors_label)),
-            catalog_file = TRUE)
+  ## write_aws(filenm = basename(gsub(".rds$", ".csv", year_group_posteriors_label)),
+  ##           catalog_file = TRUE)
 
   year_group_sum <- year_group_posteriors |>
     group_by(fYEAR, fGROUP, REPORT_YEAR, DATE) %>%
@@ -603,9 +603,9 @@ get_model_posteriors <- function(mod_str, data.group) {
   saveRDS(year_posteriors, file = year_posteriors_label)
   write_csv(year_posteriors |> dplyr::select(-fYEAR),
             file = gsub(".rds$", ".csv", gsub("_year_", "_annual_", year_posteriors_label)))
-  write_aws(filenm = basename(gsub(".rds$", ".csv",
-                                   gsub("_year_", "_annual_", year_posteriors_label))),
-            catalog_file = TRUE)
+  ## write_aws(filenm = basename(gsub(".rds$", ".csv",
+  ##                                  gsub("_year_", "_annual_", year_posteriors_label))),
+  ##           catalog_file = TRUE)
 
   year_sum <- year_posteriors %>%
     group_by(fYEAR, REPORT_YEAR, DATE) %>%
