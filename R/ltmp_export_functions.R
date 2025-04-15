@@ -310,7 +310,7 @@ write_aws <- function(from = NULL, to = NULL, filenm = NULL, catalog_file = FALS
         "modelled/",
         filenm
       )
-      remote_file <- paste0(
+      to <- paste0(
         status::get_setting(element = "aws_path"),
         "output/",
         filenm
