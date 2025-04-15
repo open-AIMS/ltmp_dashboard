@@ -241,7 +241,7 @@ ltmp_export_data <- function(data_export) {
     ## year_sum data
     locl_file <- str_replace(local_file, ".csv", "_year.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year.csv")
-    data_export$year_sum[[1]] |> write_csv(file = local_file)
+    data_export$year_sum[[1]] |> write_csv(file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
@@ -251,7 +251,7 @@ ltmp_export_data <- function(data_export) {
     ## year_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_year_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year_posteriors.csv")
-    data_export$year_posteriors[[1]] |> write_csv(file = local_file)
+    data_export$year_posteriors[[1]] |> write_csv(file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
@@ -261,7 +261,7 @@ ltmp_export_data <- function(data_export) {
     ## yearcomp_sum data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp.csv")
-    data_export$yearcomp_sum[[1]] |> write_csv(file = local_file)
+    data_export$yearcomp_sum[[1]] |> write_csv(file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
@@ -271,7 +271,7 @@ ltmp_export_data <- function(data_export) {
     ## yearcomp_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp_posteriors.csv")
-    data_export$yearcomp_posteriors[[1]] |> write_csv(file = local_file)
+    data_export$yearcomp_posteriors[[1]] |> write_csv(file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
