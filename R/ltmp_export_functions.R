@@ -241,11 +241,16 @@ ltmp_export_data <- function(data_export) {
     ## year_sum data
     locl_file <- str_replace(local_file, ".csv", "_year.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year.csv")
+    remt_file_old <- str_replace(remote_file, ".csv", ".csv")
     data_export$year_sum[[1]] |> write_csv(file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
         to = remt_file,
+        catalog_file = FALSE)
+      write_aws(
+        from = locl_file,
+        to = remt_file_old,
         catalog_file = FALSE)
     }
     ## year_posteriors data
