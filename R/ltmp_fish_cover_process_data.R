@@ -37,18 +37,21 @@ data <- ltmp_calc_density_fish(data)
 
 ##################################################################################
 ## Determine whether each fish is a newly monitored taxa or a traditionally     ##
-## monitored taxa (OLD_FISH: TRUE).  This is done based on the list of          ##
-## FISH_CODE in:                                                                ##
-## ../data/parameters/traditional_fish.csv                                      ##
+## monitored taxa (OLD_FISH: TRUE).  As of May 2025, this is done based on the  ##
+## a field called "Dashboard species list" as well as whether the year is       ##
+## >= 2022:                                                                     ##
+## ../data/parameters/dashboard_fish_groups.csv                                 ##
 ##################################################################################
 data <- ltmp_old_new_fish(data)
 
 ###################################################################################
 ## Generate a reference lookup to determine the major (top 6) groups (GENUS for  ##
-## Pomacentridae/Damselfishes, otherwise FAMILY) and group all the minor groups  ##
+## Small fishes, otherwise FAMILY) and group all the minor groups                ##
 ## into an 'Other' category. This will be created for all spatial domains, but   ##
 ## it is only relevant for reef level data.  This is only relavent for those     ##
 ## Groups that involve length calculations.                                      ##
+## The distinction between Large fishes and Small fishes is based on the field   ##
+## "Dashboard_large" in the "../data/parameters/dashboard_fish_groups.csv"       ##
 ###################################################################################
 lookup_sizes <- ltmp_lookup_sizes_fish(data)
 
@@ -56,8 +59,10 @@ lookup_sizes <- ltmp_lookup_sizes_fish(data)
 ## Generate a reference lookup to determine the major (top 6) groups (FAMILY)    ##
 ## and group all the minor groups.                                               ##
 ## This is specific for:                                                         ##
-## - Harvested: (Labridae, Lethrinidae, Lutjanidae, Serranidae)                  ##
-## - Herbivores: (Acanthuridae, Scarinae, Siganidae)                             ##
+## - Harvested: Dashboard_harvested == "yes" in:                                 ##
+##    ../data/parameters/dashboard_fish_groups.csv                               ##
+## - Herbivores: Dashboard_herbivores == "yes" in:                               ##
+##    ../data/parameters/dashboard_fish_groups.csv                               ##
 ## This will be created for all spatial domains, it is only relevant for reef    ##
 ## level data.                                                                   ##
 ###################################################################################

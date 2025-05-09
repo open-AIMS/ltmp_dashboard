@@ -1,0 +1,209 @@
+* TODO
+- for manta-tow, can we get NRM_REGION added as a field in the data
+- use the data that I am extracting from SQL as templates
+- the original manta data has an LC_MID, dont think this is being used
+  and not sure how to extract from database
+- [ ] acquire fish sql so that I can replicate it
+- [ ] adapt the fish pipeline
+- [ ] acquire juvenile sql so that I can replicate it
+- [ ] adapt the juvenile pipeline
+- [ ] create a github actions workflow to create the docker image (as a package)
+- [ ] test communication between dashboard and R backend
+  - ensure that R scripts get triggered
+  - ensure that all artifacts returned
+- [ ] document everything
+  
+* Docker
+docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R
+
+
+* Photo-transect
+** Sectors
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024//CA/Sectors/CA/raw/reef_data.zip" --method=photo-transect --domain=CA --scale=Sectors --status=true --refresh_data=false
+#+END_SRC
+
+** nrm
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024//Burdekin/nrm/Burdekin/raw/reef_data.zip" --method=photo-transect --domain=Burdekin --scale=nrm --status=true --refresh_data=false
+#+END_SRC
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip" --method=photo-transect --domain='Wet Tropics' --scale=nrm --status=true --refresh_data=false
+#+END_SRC
+
+** reef
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Arlington Reef/raw/reef_data.zip" --method=photo-transect --domain='Arlington Reef' --scale=reef --status=true --refresh_data=false
+#+END_SRC
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Barren Island/raw/reef_data.zip" --method=photo-transect --domain='Barren Island' --scale=reef --status=true --refresh_data=false
+#+END_SRC
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Pandora Reef/raw/reef_data.zip" --method=photo-transect --domain='Pandora Reef' --scale=reef --status=true --refresh_data=false
+#+END_SRC
+
+* Manta tow
+
+* Juveniles
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/juvenile/2021-01-14/process/MMP/2024/PO/reef/Snapper Island/raw/reef_data.zip" --method=juvenile --domain='Snapper Island' --scale=reef --status=true --refresh_data=false
+#+END_SRC
+
+#+BEGIN_SRC bash 
+  docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/juvenile/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip" --method=juvenile --domain='Wet Tropics' --scale=nrm --status=true --refresh_data=false
+#+END_SRC
+
+
+* Fish
+
+* LTMP Dashboard ADC
+https://aimsgovau.sharepoint.com/sites/ADCTeam/SitePages/Reefmon-queries.aspx?csf=1&web=1&share=EXveV2l9JoJGrjPeVh1xehYBTe5m49gVF7yXB__HUHUItA&e=csS2Qc&CT=1737440092563&OR=OWA-NTB-Mail&CID=dd052779-36dc-794e-8115-3d064a10c296
+* Database
+** what tables are in a database
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select name from sqlite_master where type='table';"
+#+END_SRC
+** what fields are in a database table
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "PRAGMA table_info(models)"
+#+END_SRC
+** display the first 10 rows of a database table (include the header and arrange in columns)
+*** no header
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select * from models limit 10;"
+#+END_SRC
+
+#+RESULTS:
+| ../../dev/data/modelled//manta_reef_12068S.rds | manta | reef | 12068S | HC |   |   |   |   |   |   | 2024-12-20 | 11:57:32 | 775b9e9efe5611f683c3c0804f61aacbfad993a673a2d93e9ee2257181735da1 |   |
+| ../../dev/data/modelled//manta_reef_12097S.rds | manta | reef | 12097S | HC |   |   |   |   |   |   | 2024-12-20 | 11:57:48 | 1e78e6eb2a0ad19f3abd05872e527be8aa83f01e6ba597c28b1298c193bc61a3 |   |
+| ../../dev/data/modelled//manta_reef_12116S.rds | manta | reef | 12116S | HC |   |   |   |   |   |   | 2024-12-20 | 11:58:04 | 98716fa860ccc49304fc76e614e16d2dbaf2d4cded472b561420a79914f1a9a4 |   |
+|                                                | manta | reef | 10351S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 10352S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 10386S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 11229A |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 12042S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 12137S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+|                                                | manta | reef | 13055S |    |   |   |   |   |   |   |            |          |                                                                  |   |
+
+*** header
+#+BEGIN_SRC bash
+sqlite3 -header ~/data/dashboard.sqlite "select * from models limit 10;"
+#+END_SRC
+
+#+RESULTS:
+| model_path                                     | data_type | data_scale | domain_name | group | reef_zone | depth | shelf | model_date | reef_model_data_hash | sector_model_data_hash | nrm_model_data_hash |          |                                                                  |   |
+| ../../dev/data/modelled//manta_reef_12068S.rds | manta     | reef       | 12068S      | HC    |           |       |       |            |                      |                        |          2024-12-20 | 11:57:32 | 775b9e9efe5611f683c3c0804f61aacbfad993a673a2d93e9ee2257181735da1 |   |
+| ../../dev/data/modelled//manta_reef_12097S.rds | manta     | reef       | 12097S      | HC    |           |       |       |            |                      |                        |          2024-12-20 | 11:57:48 | 1e78e6eb2a0ad19f3abd05872e527be8aa83f01e6ba597c28b1298c193bc61a3 |   |
+| ../../dev/data/modelled//manta_reef_12116S.rds | manta     | reef       | 12116S      | HC    |           |       |       |            |                      |                        |          2024-12-20 | 11:58:04 | 98716fa860ccc49304fc76e614e16d2dbaf2d4cded472b561420a79914f1a9a4 |   |
+|                                                | manta     | reef       | 10351S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 10352S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 10386S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 11229A      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 12042S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 12137S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+|                                                | manta     | reef       | 13055S      |       |           |       |       |            |                      |                        |                     |          |                                                                  |   |
+
+*** header and in columns
+#+BEGIN_SRC bash
+sqlite3 -header -column ~/data/dashboard.sqlite "select * from models limit 10;"
+#+END_SRC
+
+#+RESULTS:
+| model_path                                     | data_type | data_scale | domain_name | group |  reef_zone |    depth | shelf                                                            | model_date          | reef_model_data_hash                                             | sector_model_data_hash | nrm_model_data_hash |
+| ---------------------------------------------- | --------- | ---------- | ----------- | ----- |  --------- |    ----- | -----                                                            | ------------------- | ---------------------------------------------------------------- | ---------------------- | ------------------- |
+| ../../dev/data/modelled//manta_reef_12068S.rds | manta     | reef       | 12068S      | HC    | 2024-12-20 | 11:57:32 | 775b9e9efe5611f683c3c0804f61aacbfad993a673a2d93e9ee2257181735da1 |                     |                                                                  |                        |                     |
+| ../../dev/data/modelled//manta_reef_12097S.rds | manta     | reef       | 12097S      | HC    | 2024-12-20 | 11:57:48 | 1e78e6eb2a0ad19f3abd05872e527be8aa83f01e6ba597c28b1298c193bc61a3 |                     |                                                                  |                        |                     |
+| ../../dev/data/modelled//manta_reef_12116S.rds | manta     | reef       | 12116S      | HC    | 2024-12-20 | 11:58:04 | 98716fa860ccc49304fc76e614e16d2dbaf2d4cded472b561420a79914f1a9a4 |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 10351S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 10352S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 10386S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 11229A     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 12042S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 12137S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+| manta                                          | reef      | 13055S     |             |       |            |          |                                                                  |                     |                                                                  |                        |                     |
+
+** display with filter
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select * from models where data_type is 'manta' and data_scale is 'sector';"
+#+END_SRC
+
+#+RESULTS:
+| ../../dev/data/modelled//manta_Sectors_CA.rds | manta | sector | CA | HC |   |   |   |   | Inshore  | 2024-12-20 | 13:30:08 |   | b471450efe80feed56784a1aa13c5922d2e60f2f3d72676a31657de1664d5a48 |
+| ../../dev/data/modelled//manta_Sectors_CA.rds | manta | sector | CA | HC |   |   |   |   | Offshore | 2024-12-20 | 13:30:08 |   | b471450efe80feed56784a1aa13c5922d2e60f2f3d72676a31657de1664d5a48 |
+|                                               | manta | sector | CB |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | CG |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | CL |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | CU |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | IN |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | PC |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | PO |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | SW |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | TO |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | TS |    |   |   |   |   |          |            |          |   |                                                                  |
+|                                               | manta | sector | WH |    |   |   |   |   |          |            |          |   |                                                                  |
+
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select * from models where data_type is 'manta' and data_scale is 'reef' and domain_name in ('10351S', '10352S');"
+#+END_SRC
+
+#+RESULTS:
+| ../../dev/data/modelled//manta_reef_10351S.rds | manta | reef | 10351S | HC |   |   |   |   |   |   | 2024-12-20 | 14:54:43 | cfb1bd169a697b4e78419a57c478f534fa9907adef3b847a73e01867288fd865 |   |
+| ../../dev/data/modelled//manta_reef_10352S.rds | manta | reef | 10352S | HC |   |   |   |   |   |   | 2024-12-20 | 14:54:58 | f28d9419277e65a0b45ffb6f7ef2c980eabc0d4c35a4a08fba1e711232141815 |   |
+
+** Count the number of rows in a database table 
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select count(*) from models;"
+#+END_SRC
+
+#+RESULTS:
+: 519
+
+** delete a table
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "drop table models;"
+#+END_SRC
+
+* Cronjob
+** list a users crontab
+#+BEGIN_SRC bash
+crontab -u mlogan -l
+#+END_SRC
+** edit a users crontab 
+#+BEGIN_SRC bash
+crontab -u mlogan -e
+#+END_SRC
+- every hour
+#+BEGIN_SRC bash
+0 * * * * Rscript ~/dev/R/batch.R --method=manta --scale=reef --domain=NULL --log=../../data/dashboard.log >> ~/crontab.log 2>&1
+#+END_SRC
+
+- 9PM each night
+#+BEGIN_SRC bash
+0 21 * * * Rscript ~/dev/R/batch.R --purpose=sql --method=manta --scale=reef --domain=NULL --log=../../data/dashboard.log >> ~/crontab.log 2>&1
+#+END_SRC
+** find the pid of a cronjob
+#+BEGIN_SRC bash
+sudo grep CRON /var/log/syslog
+#+END_SRC
+* Batch
+- purpose=sql
+#+BEGIN_SRC bash
+system("Rscript batch.R --purpose=sql --method=manta --log=../../data/dashboard.log")
+#+END_SRC
+#+BEGIN_SRC bash
+system("Rscript batch.R --purpose=sql,post-process,prepare,fit --method=manta --scale=sector --domain=NULL --log=../../data/dashboard.log")
+#+END_SRC
+
+
+* restarting the server
+#+BEGIN_SRC bash
+sudo systemctl restart shiny-server.service
+#+END_SRC
+
+* Sequences
+- create blank database
+- system(paste("chmod ug+rw", config_$db_path))
+- Use ~/dev/data/modelled folder to generate a models database table
+  path, data_type, data_scale, domain_name, group, reef_zone, depth, shelf, model_date, model_path, reef_model_data_hash, sector_model_hash, nrm_model_data_hash
+- 
+- Run sql
