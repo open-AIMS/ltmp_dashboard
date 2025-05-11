@@ -910,10 +910,11 @@ ltmp_process_trout_fish <- function(data, data_sum) {
     ## for this, remove data prior to 1995, as there are no lengths
     data_sum <- data_sum |>
       bind_rows(data |>
-                mutate(Group = Trophic) |>
+                ## mutate(Group = Trophic) |>
                 ## filter(Trophic %in% c("Coral Trout", "Secondary targets"),
-                filter(Dashboard_trout == "yes",
+                filter(Dashboard_harvested == "yes",
                        REPORT_YEAR>1996) |>    # CHECK THIS!!!
+                mutate(Group = ifelse(Dashboard_trout == "yes", "Coral Trout", "Secondary targets")) |> 
                 droplevels() |>
                 mutate(fGROUP = FAMILY) |> 
                 group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,

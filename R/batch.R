@@ -17,14 +17,14 @@ message(Sys.info()[["user"]])
 ##   "--scale=reef",
 ##   "--log=../../data/dashboard.log"
 ##   )
-args <- c(
-  "Rscript",
-  "batch.R",
-  "--purpose=sql",
-  "--method=fish",
-  "--scale=NULL",
-  "--log=../../data/dashboard.log"
-  )
+## args <- c(
+##   "Rscript",
+##   "batch.R",
+##   "--purpose=sql",
+##   "--method=fish",
+##   "--scale=NULL",
+##   "--log=../../data/dashboard.log"
+##   )
 ## args <- c(
 ##   "Rscript",
 ##   "batch.R",
@@ -233,6 +233,8 @@ if ("fit" %in% purpose) {  ## Fit models
                                      )
     ## process$is_alive()
     process$wait()
+    message(process$get_exit_status())
+    message(process$get_error_file())
     update_db_model_hash(method = data_type, scale = data_scale, domain = domains)
   }
   print("Fit models complete")

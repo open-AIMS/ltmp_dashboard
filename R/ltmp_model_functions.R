@@ -855,7 +855,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
                            geom_line(data = raw_sum,
                                      aes(y = Median, x = as.numeric(as.character(fYEAR)),
                                          colour = "Raw median")) +
-                           facet_wrap(~family_type) +
+                           facet_wrap(~family_type, scales = "free_y") +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                                ## scale_y_continuous(ylab, label = scales::label_percent())

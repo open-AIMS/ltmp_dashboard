@@ -4,8 +4,9 @@ library(tidyverse)
 
 args <- commandArgs()
 
+message(args)
 ## print(args)
-
+  
 has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
 if(has_method_argument) {
   arg <- args[grep("--method=.*", args)]
@@ -36,6 +37,9 @@ print(domain)
     ## file.append(file1 = old_log_file, file2 = out_log_file)
 print(out_log_file)
 
+message(data_type)
+message(data_scale)
+## Sys.sleep(30)
 
 if (data_type == "photo-transect" & data_scale == "reef") {
   cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
@@ -51,7 +55,9 @@ if (data_type == "photo-transect" & data_scale == "reef") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -83,7 +89,9 @@ if (data_type == "photo-transect" & data_scale == "sector") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -115,7 +123,9 @@ if (data_type == "photo-transect" & data_scale == "nrm") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -148,7 +158,9 @@ if (data_type == "manta" & data_scale == "reef") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -180,7 +192,9 @@ if (data_type == "manta" & data_scale == "sector") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -215,7 +229,9 @@ if (data_type == "manta" & data_scale == "nrm") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -249,7 +265,9 @@ if (data_type == "fish" & data_scale == "reef") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -281,7 +299,9 @@ if (data_type == "fish" & data_scale == "sector") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,
@@ -316,7 +336,9 @@ if (data_type == "fish" & data_scale == "nrm") {
               "-v /etc/timezone:/etc/timezone",
               "-v /home/mlogan/dev:/home/Project",
               "-v /home/mlogan/data:/data",
-              "ltmp-monitoring-model:latest",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
               "Rscript",
               "/home/Project/R/00_main.R",
               shQuote(paste0("--path='/data/", data_type,

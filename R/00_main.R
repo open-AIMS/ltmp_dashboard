@@ -12,7 +12,7 @@
 ##2. direct editor to run R within the container
 ## M-x ess-remote
 ##3. set wd to /home/Project/R
-#setwd("/home/Project/R")
+##setwd("/home/Project/R")
 
 ## remotes::install_github('open-AIMS/status', ref = 'adapt', force = TRUE)
 
