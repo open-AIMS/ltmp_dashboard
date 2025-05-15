@@ -1,11 +1,8 @@
 FROM rocker/geospatial:4.4.2
 
-RUN apt-get update -qq && apt-get -y --no-install-recommends install git curl unzip
+RUN apt-get update -qq && apt-get -y --no-install-recommends install awscli
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-RUN unzip awscliv2.zip
-RUN ./aws/install
-RUN rm -rf aws
+RUN apt-get -y --no-install-recommends install git
 
 RUN R -e "options(repos = \
   # list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2022-10-10/')); \
