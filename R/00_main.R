@@ -47,3 +47,4 @@ if (status::get_setting(element = "data_method") == "juvenile")
 if (status::get_setting(element = "data_method") == "fish") 
   source("ltmp_fish_cover.R")
 
+quit(save = "no", status = 0)
