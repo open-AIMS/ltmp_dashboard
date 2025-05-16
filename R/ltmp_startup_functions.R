@@ -17,9 +17,10 @@ ltmp_is_parent <- function() {
 ltmp_start_matter <- function(args = commandArgs()) {
     ltmp_initialise_status()                 ## create the status list
     status::status_set_stage(stage = 1, title = "Configure system")
-    status::display_status_terminal()        ## display an opening banner
+    ## if (do_display) status::display_status_terminal()        ## display an opening banner
     ltmp_parse_cla(args)                    ## parse command line arguments
-    if (do_display) if (status::get_setting("refresh_data")) ltmp_clear_data()
+    if (do_display) status::display_status_terminal()        ## display an opening banner
+    if (status::get_setting("refresh_data")) ltmp_clear_data()
     ltmp_generate_other_settings() 
     ## ltmp_initialise_log()       ## create the log 
     ltmp_config()
@@ -34,6 +35,8 @@ ltmp_initialise_status <- function() {
     project_name = "LTMP/MMP dashboard",
     box_width = 100
   ) ## create the status list
+      assign("do_log", FALSE, envir = .GlobalEnv)
+      assign("do_display", FALSE, envir = .GlobalEnv)
 }
 
 ltmp_parse_cla <- function(args) {
@@ -41,7 +44,8 @@ ltmp_parse_cla <- function(args) {
     parent_file <- FALSE
     ## Generate a message outlining the necessary format of the command line arguments
     valid_cla <- paste0("The call must be of the form:\n",
-                        "<script>.R --file=\"<PATH>\" --status=<true|false> --sql\n",
+                        "<script>.R --file=\"<PATH>\" --display_logs=<true|false>",
+                        "\n--status=<true|false> --sql\n",
                         "\n<script>: \ta script name",
                         "\n<PATH>: \ta valid path to a folder containing the input data",
                         "\n<true|false>:\twhether to provide full status"
@@ -136,10 +140,6 @@ ltmp_parse_cla <- function(args) {
       status::add_setting(element = "display_status",
                           item = TRUE,
                           name = "Display status")
-    if (!status::get_setting(element = "display_status")) {
-      assign("do_log", FALSE, envir = .GlobalEnv)
-      assign("do_display", FALSE, envir = .GlobalEnv)
-    }
     ## reset the logfile directory - so that it is constantly being written back to the bucket
     print(paste("AWS_PATH =", AWS_PATH))
     assign("aws_out_path", paste0(AWS_PATH, "output/"), envir = .GlobalEnv)
@@ -187,6 +187,28 @@ get_params_from_cla <- function(args) {
     status::add_setting(element = "domain_name",
                         item = gsub("--domain=(.)", "\\1", arg),
                         name = "Domain name")
+  }
+
+  has_display_argument <- any(grepl("--display_log=.*", args, perl = TRUE))
+  if(has_display_argument) {
+    ## arg <- ifelse(any(grepl('--display_log ?= ?(true|t|TRUE|T)',
+    ##                                          args,
+    ##                                          perl = TRUE)), TRUE, FALSE)
+    arg <- args[grep("--display_log=.*", args)]
+    arg <- gsub("'", "", arg) 
+    arg <- ifelse(any(grepl('--display_log ?= ?(false|f|FALSE|F)', arg, perl = TRUE)), FALSE, TRUE)
+    status::add_setting(element = "display_log",
+                        item = arg,
+                        ## item = gsub("--display_log=(.)", "\\1", arg),
+                        name = "Display logs")
+    if(!arg) {
+      assign("do_log", FALSE, envir = .GlobalEnv)
+      assign("do_display", FALSE, envir = .GlobalEnv)
+    }
+  } else {
+    status::add_setting(element = "display_log",
+                        item = TRUE,
+                        name = "Display logs")
   }
   DEBUG_MODE <- ifelse(any(grepl('--status ?= ?(true|t|TRUE|T)', args, perl = TRUE)), TRUE, FALSE)
   status::add_setting(element = "display_status",
