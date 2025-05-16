@@ -19,7 +19,7 @@ ltmp_start_matter <- function(args = commandArgs()) {
     status::status_set_stage(stage = 1, title = "Configure system")
     status::display_status_terminal()        ## display an opening banner
     ltmp_parse_cla(args)                    ## parse command line arguments
-    if (status::get_setting("refresh_data")) ltmp_clear_data()
+    if (do_display) if (status::get_setting("refresh_data")) ltmp_clear_data()
     ltmp_generate_other_settings() 
     ## ltmp_initialise_log()       ## create the log 
     ltmp_config()
@@ -136,6 +136,10 @@ ltmp_parse_cla <- function(args) {
       status::add_setting(element = "display_status",
                           item = TRUE,
                           name = "Display status")
+    if (!status::get_setting(element = "display_status")) {
+      assign("do_log", FALSE, envir = .GlobalEnv)
+      assign("do_display", FALSE, envir = .GlobalEnv)
+    }
     ## reset the logfile directory - so that it is constantly being written back to the bucket
     print(paste("AWS_PATH =", AWS_PATH))
     assign("aws_out_path", paste0(AWS_PATH, "output/"), envir = .GlobalEnv)
