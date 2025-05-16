@@ -24,9 +24,9 @@ args = c(
   "R",
   "Rscript",
   "--file=fish_cover.R",                            ##the name of the target script
-  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Helix Reef/raw/reef_data.zip",
   "--method=fish",
-  "--domain=Pompey Reef No.1",
+  "--domain=Helix Reef",
   "--scale=reef",
   "--status=true",                                  ##whether to show full status 
   "--refresh_data=false"                            ##whether to refresh all the data 

@@ -1240,7 +1240,7 @@ ltmp_delete_non_selected_models <- function(data) {
     file.remove(files)
   },
   stage_ = 4,
-  order_ = 20,
+  order_ = 22,
   name_ = "Delete excess models",
   item_ = "delete_models"
   )
