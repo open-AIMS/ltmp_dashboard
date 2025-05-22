@@ -3,9 +3,12 @@ docker pull ghcr.io/open-aims/ltmp_dashboard:dev
 docker run --entrypoint R --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev Rscript /home/Project/R/00_main.R --path='/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip' --method=fish --domain='Pompey Reef No.1' --scale=reef
 
 #### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
+#### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev
 
 setwd("/home/Project/R")
 system("cp -r /data/spatial ../data/spatial")
+
+## remotes::install_github('open-AIMS/status', ref = 'main', force = TRUE)
 library(status)
 source("ltmp_startup_functions.R")
 
@@ -28,6 +31,18 @@ args = c(
   "--method=fish",
   "--domain=Helix Reef",
   "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Helix Reef/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Helix Reef",
+  "--scale=reef",
+  "--display_log=false",
   "--status=true",                                  ##whether to show full status 
   "--refresh_data=false"                            ##whether to refresh all the data 
 )
@@ -322,17 +337,17 @@ args = c(
 
 ## fish
 
-args = c(
-  "R",
-  "Rscript",
-  "--file=fish_cover.R",                            ##the name of the target script
-  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Ribb Reef/raw/reef_data.zip",
-  "--method=fish",
-  "--domain=Ribb Reef",
-  "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
-)
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=fish_cover.R",                            ##the name of the target script
+##   "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Ribb Reef/raw/reef_data.zip",
+##   "--method=fish",
+##   "--domain=Ribb Reef",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
 
 ## args = c(
 ##   "R",
@@ -381,14 +396,39 @@ args = c(
 ##   "--refresh_data=false"                            ##whether to refresh all the data 
 ## )
 
-## args = c(
-##   "R",
-##   "Rscript",
-##   "--file=fish_cover.R",                            ##the name of the target script
-##   "--path=/data/fish/2021-01-14/process/ALL/2024/TO/Sectors/TO/raw/reef_data.zip",
-##   "--method=fish",
-##   "--domain=TO",
-##   "--scale=Sectors",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
-## )
+args = c(
+  "R",
+  "Rscript",
+  "--file=juvenile_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/CA/Sectors/CA/raw/reef_data.zip",
+  "--method=juveniles",
+  "--domain=CA",
+  "--scale=Sectors",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=juvenile_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/ALL/reef/Centipede Reef/raw/reef_data.zip",
+  "--method=juveniles",
+  "--domain=Centipede Reef",
+  "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=juvenile_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/Burdekin/nrm/Burdekin/raw/reef_data.zip",
+  "--method=juveniles",
+  "--domain=Burdekin",
+  "--scale=nrm",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+

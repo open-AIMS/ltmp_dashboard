@@ -115,6 +115,18 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
     ),
     intern = TRUE)
   }
+  if (data_type == "juveniles") {
+    out2 <- system(paste0(
+      "cut -d, -f4,6,7,15 < ", csv_file, " | uniq |
+    Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
+    input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
+    group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
+    summarise(SURVEY_DATE=max(SURVEY_DATE));
+    write.csv(input, row.names=FALSE)\"
+    "
+    ),
+    intern = TRUE)
+  }
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   ## dbWriteTable(con, paste0(data_type, "_sum1"), out2, overwrite = TRUE)
   data_info <- file.mtime(csv_file)
@@ -127,6 +139,23 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
            survey_date = as.POSIXct(survey_date, "%Y-%m-%d %H:%M:%S", tz = "Australia/Brisbane"),
            ## extraction_date = format(data_info, "%Y-%m-%d %H:%M:%S"))
            extraction_date = data_info)
+  ## add additional fields representing model hashes etc
+  ## extra_fields <- c("sector_extract_data_hash" = NA,
+  ##          "sector_model_date" = NA,
+  ##          "sector_model_data_hash" = NA,
+  ##          "nrm_extract_data_hash" = NA,
+  ##          "nrm_model_date" = NA,
+  ##          "nrm_model_data_hash" = NA,
+  ##          "reef_extract_data_hash" = NA,
+  ##          "reef_model_date" = NA,
+  ##          "reef_model_data_hash" = NA,
+  ##          "sector_model_data_hash_flag" = NA,
+  ##          "nrm_model_data_hash_flag" = NA,
+  ##          "reefe_model_data_hash_flag" = NA
+  ##          )
+  ## data <-
+  ##   data |> 
+  ##   add_column(!!!extra_fields[setdiff(names(extra_fields), names(data))])
   ## print(head(data))
   dbWriteTable(con, paste0(data_type, "_sum"), data, overwrite = TRUE)
   dbDisconnect(con)
@@ -156,6 +185,8 @@ make_dashboard_summary <- function(method, scale) {
     if (scale == "sql") {
       db_tbl <- paste0(method, "_sum")
       data <- tbl(con, db_tbl) 
+      ## alert(paste("make_dashboard_summary:",db_tbl))
+      ## alert(colnames(data))
       ## sector
       if (paste0(method, "_sector_sum") %in% tbls) {
         data <- data |>
@@ -178,6 +209,15 @@ make_dashboard_summary <- function(method, scale) {
         ## ttt <- tbl(con, "models") |> collect()
         ## alert(head(ttt$model_date))
         ## alert(colnames(data))
+      } else {
+        ## hash <- digest(paste0(config_$data_path, method, ".csv"),
+        ##                algo = "sha256", file = TRUE)
+        hash <- NA
+        data <- data |>
+        ##   collect() |> 
+          mutate(sector_extraction_data_hash = hash,
+                 sector_model_date = NA,
+                 sector_model_data_hash = NA)
       }
       ## nrm
       if (paste0(method, "_nrm_sum") %in% tbls) {
@@ -197,6 +237,15 @@ make_dashboard_summary <- function(method, scale) {
                            nrm_model_data_hash),
                     by = c("nrm" = "domain_name"))
         }
+      } else {
+        ## hash <- digest(paste0(config_$data_path, method, ".csv"),
+        ##                algo = "sha256", file = TRUE)
+        hash <- NA
+        data <- data |>
+        ##   collect() |> 
+          mutate(nrm_extraction_data_hash = hash,
+                 nrm_model_date = NA,
+                 nrm_model_data_hash = NA)
       }
       ## reef
       if (paste0(method, "_reef_sum") %in% tbls) {
@@ -216,10 +265,20 @@ make_dashboard_summary <- function(method, scale) {
                              reef_model_data_hash),
                       by = c("reef" = "domain_name"))
         }
+      } else {
+        ## hash <- digest(paste0(config_$data_path, method, ".csv"),
+        ##                algo = "sha256", file = TRUE)
+        hash <- NA
+        data <- data |>
+        ##   collect() |> 
+          mutate(reef_extraction_data_hash = hash,
+                 reef_model_date = NA,
+                 reef_model_data_hash = NA)
       }
       data <- data |> 
         collect() |>
         distinct()
+
     } else if (paste0(method, "_sum") %in% tbls &
                paste0(method, "_reef_sum") %in% tbls) { ## e.g. it is "reef"
       db_tbl <- paste0(method, "_sum")
@@ -394,13 +453,16 @@ update_db_models <- function() {
 
 ## Get a hash of the data after extracting, processing and bucketing
 make_data_hash <- function(method, scale, domain) {
+  method <- ifelse(method == "juveniles", "juvenile", method) ## for the juveniles method, the path is juvenile not juveniles
   data_paths <- paste0(config_$data_path, method)
   data_scale <- case_when(scale == "reef" ~ "reef",
                           scale == "sector" ~ "Sectors",
                           scale == "nrm" ~ "nrm"
                           )
+  ## alert(data_paths)
   fls <- list.files(data_paths,
                     recursive = TRUE, full.names = TRUE)
+  ## alert(fls)
   fls_wch <- str_detect(fls, paste0(".*/process/[^/]*/[^/]*/[^/]*/",data_scale,"/.*.csv$")) 
   models <- tibble(path = unique(fls[fls_wch])) |>
     mutate(data_type = str_replace(path, ".*/data/([^/]*)/.*", "\\1")) |>
@@ -548,6 +610,7 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ## pp <- data_hash |> filter(data_type == "manta", data_scale == "reef", domain_name == "12068S") |> as.data.frame() |> head()
   ## print(pp)
   ## if models database table does not exist, make it
+  
   if (!does_db_table_exist("models")) {
     models_db <- update_db_models()
   }
@@ -575,9 +638,22 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ## }
   ## get the summary table (to know what all models would be)
   tb <- get_db_summary_table(method = method, scale = scale)
+
+  ## initially, the database table from which tb is extracted might be empty.
+  ## when this is the case, the fields might be the wrong class.  So we will
+  ## check to make sure they are the correct class before joining.
+  tb <- tb |>
+    mutate(data_scale =  as.character(data_scale))
+  
+  ## alert(head(models_db))
+  ## alert(models_db |> filter(data_type == "juveniles"))
+  ## alert(class(models_db$data_scale))
+  ## alert(class(tb$data_scale))
+  ## alert(head(tb))
   ## Join tb to models_db to ensure that all possible models have a row
   models_db <- models_db |>
-    full_join(tb |> select(data_type, data_scale, domain_name),
+    full_join(tb |>
+              select(data_type, data_scale, domain_name),
               by = c("data_type", "data_scale", "domain_name"))
   ## join in data_hash, to update the models database
   ## for the focal domain, there will be a two x_model_data_hash values

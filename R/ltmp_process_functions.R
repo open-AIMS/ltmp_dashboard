@@ -465,24 +465,25 @@ ltmp_group_lookup_juv <- function(data) {
   return(lookup)  
 }
 
-ltmp_reduce_groups_juv <- function(data) {
+ltmp_reduce_groups_juv <- function(data, lookup) {
   status::status_try_catch(
   {
-  data <- data |>
-    full_join(lookup |> dplyr::select(-COUNT)) |>
-    mutate(fGROUP=ifelse(is.na(fGROUP), 'Other', fGROUP)) |>
-    dplyr::select(-REEFPAGE_CATEGORY)
-  ## groups <- data |> pull(fGROUP) |> unique()
-  ## report_years <- data |> pull(REPORT_YEAR) |> unique
-  if (status::get_setting(element = "data_scale") != 'reef')
-    data <- data |> mutate(fGROUP=NA)
-  ## Ensure that there is only a single entry per fGROUP pear site/year
-  data <- data |> 
-    group_by(P_CODE, SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, SITE_DEPTH,
-             LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT, REPORT_YEAR,
-             SURVEY_DATE, fGROUP) |> 
-    summarise(ABUNDANCE = sum(ABUNDANCE)) |>
-    ungroup()
+    data <-
+      data |>
+      full_join(lookup |> dplyr::select(-COUNT)) |>
+      mutate(fGROUP = ifelse(is.na(fGROUP), 'Other', fGROUP)) |>
+      dplyr::select(-REEFPAGE_CATEGORY)
+    ## groups <- data |> pull(fGROUP) |> unique()
+    ## report_years <- data |> pull(REPORT_YEAR) |> unique
+    if (status::get_setting(element = "data_scale") != 'reef')
+      data <- data |> mutate(fGROUP=NA)
+    ## Ensure that there is only a single entry per fGROUP pear site/year
+    data <- data |> 
+      group_by(P_CODE, SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, SITE_DEPTH,
+               LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT, REPORT_YEAR,
+               SURVEY_DATE, fGROUP) |> 
+      summarise(ABUNDANCE = sum(ABUNDANCE)) |>
+      ungroup()
   },
   stage_ = 3,
   order_ = 5,

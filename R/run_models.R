@@ -1,11 +1,13 @@
+print("I AM HERE")
 
 library(tidyverse)
+## library(dplyr)
 ## library(processx)
 
 args <- commandArgs()
 
 message(args)
-## print(args)
+print(args)
   
 has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
 if(has_method_argument) {
@@ -22,7 +24,6 @@ if(has_log_argument) {
   arg <- args[grep("--log=.*", args)]
   out_log_file <- gsub("--log=(.)", "\\1", arg)
 }
-
 
 print(data_type)
 print(data_scale)
@@ -357,3 +358,115 @@ if (data_type == "fish" & data_scale == "nrm") {
   }
 }
 
+
+if (data_type == "juveniles" & data_scale == "sector") {
+  cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
+  message(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
+  for (sec in domain) {
+    old_log_file <- gsub(".log", ".old", out_log_file)
+    ## file.copy(from = out_log_file, to = old_log_file)
+    system2("docker",
+            args = c(
+              "run",
+              "-i",
+              "--rm",
+              "-v /etc/localtime:/etc/localtime",
+              "-v /etc/timezone:/etc/timezone",
+              "-v /home/mlogan/dev:/home/Project",
+              "-v /home/mlogan/data:/data",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
+              "Rscript",
+              "/home/Project/R/00_main.R",
+              ## shQuote(paste0("--path='/data/", data_type,
+              shQuote(paste0("--path='/data/", "juvenile",
+                             "/2021-01-14/process/ALL/2024/",
+                             sec, "/Sectors/", sec,
+                             "/raw/reef_data.zip'")),
+              ## paste0("--method=", data_type),
+              paste0("--method=", "juveniles"),
+              shQuote(paste0("--domain=", sec)),
+              "--scale=Sectors",
+              "--status=true",
+              "--refresh_data=false"
+            ),
+            stdout = out_log_file,
+            wait = TRUE)
+    file.append(file1 = old_log_file, file2 = out_log_file)
+  }
+}
+
+if (data_type == "juveniles" & data_scale == "nrm") {
+  cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
+  for (nrm in domain) {
+    old_log_file <- gsub(".log", ".old", out_log_file)
+    ## file.copy(from = out_log_file, to = old_log_file)
+    system2("docker",
+            args = c(
+              "run",
+              "-i",
+              "--rm",
+              "-v /etc/localtime:/etc/localtime",
+              "-v /etc/timezone:/etc/timezone",
+              "-v /home/mlogan/dev:/home/Project",
+              "-v /home/mlogan/data:/data",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
+              "Rscript",
+              "/home/Project/R/00_main.R",
+              ## shQuote(paste0("--path='/data/", data_type,
+              shQuote(paste0("--path='/data/", "juvenile",
+                             "/2021-01-14/process/ALL/2024/",
+                             nrm, "/nrm/", nrm,
+                             "/raw/reef_data.zip'")),
+              ## paste0("--method=", data_type),
+              paste0("--method=", "juveniles"),
+              shQuote(paste0("--domain=", nrm)),
+              "--scale=nrm",
+              "--status=true",
+              "--refresh_data=false"
+            ),
+            stdout = out_log_file,
+            wait = TRUE)
+    file.append(file1 = old_log_file, file2 = out_log_file)
+  }
+}
+
+if (data_type == "juveniles" & data_scale == "reef") {
+  cat(paste0("Start fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
+  for (rf in domain) {
+    old_log_file <- gsub(".log", ".old", out_log_file)
+    ## file.copy(from = out_log_file, to = old_log_file)
+    system2("docker",
+            args = c(
+              "run",
+              "-i",
+              "--rm",
+              "-v /etc/localtime:/etc/localtime",
+              "-v /etc/timezone:/etc/timezone",
+              "-v /home/mlogan/dev:/home/Project",
+              "-v /home/mlogan/data:/data",
+              "-w /home/Project/R",
+              ## "ltmp-monitoring-model:latest",
+              "ghcr.io/open-aims/ltmp_dashboard:dev",
+              "Rscript",
+              "/home/Project/R/00_main.R",
+              ## shQuote(paste0("--path='/data/", data_type,
+              shQuote(paste0("--path='/data/", "juvenile",
+                             "/2021-01-14/process/ALL/2024/ALL",
+                             "/reef/", rf,
+                             "/raw/reef_data.zip'")),
+              ## paste0("--method=", data_type),
+              paste0("--method=", "juveniles"),
+              shQuote(paste0("--domain=", rf)),
+              "--scale=reef",
+              "--status=true",
+              "--refresh_data=false"
+            ),
+            stdout = out_log_file,
+            wait = TRUE)
+    file.append(file1 = old_log_file, file2 = out_log_file)
+  }
+}

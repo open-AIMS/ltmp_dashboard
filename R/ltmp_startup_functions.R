@@ -209,6 +209,8 @@ get_params_from_cla <- function(args) {
     status::add_setting(element = "display_log",
                         item = TRUE,
                         name = "Display logs")
+    assign("do_log", TRUE, envir = .GlobalEnv)
+    assign("do_display", TRUE, envir = .GlobalEnv)
   }
   DEBUG_MODE <- ifelse(any(grepl('--status ?= ?(true|t|TRUE|T)', args, perl = TRUE)), TRUE, FALSE)
   status::add_setting(element = "display_status",

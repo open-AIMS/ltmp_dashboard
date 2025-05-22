@@ -21,7 +21,6 @@
 #system("cp -r /data/spatial ../data/spatial")
 
 
-
 library(status)
 
 source("ltmp_startup_functions.R")
@@ -29,8 +28,11 @@ source("ltmp_startup_functions.R")
 
 args <- commandArgs()
 
-if (ltmp_is_parent()) ltmp_start_matter(args)
+## print(args)
+## print("more")
 
+if (ltmp_is_parent()) ltmp_start_matter(args)
+## print(status::get_setting(element = "data_method"))
 ## Photo-transect analyses
 if (status::get_setting(element = "data_method") == "photo-transect") 
   source("ltmp_pt_cover.R")
@@ -40,7 +42,7 @@ if (status::get_setting(element = "data_method") == "manta")
   source("ltmp_manta_cover.R")
 
 ## Juveniles analyses
-if (status::get_setting(element = "data_method") == "juvenile") 
+if (status::get_setting(element = "data_method") == "juveniles") 
   source("ltmp_juvenile_cover.R")
 
 ## Fish analyses

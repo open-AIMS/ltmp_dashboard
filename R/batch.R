@@ -58,7 +58,7 @@ if(has_method_argument) {
   sql_file <- case_when(
     data_type == "photo-transect" ~ "pt",
     data_type == "manta" ~ "manta",
-    data_type == "juvenile" ~ "juv",
+    data_type == "juveniles" ~ "juv",
     data_type == "fish" ~ "fish",
     .default = NULL
     )
@@ -125,6 +125,8 @@ message(config_$dashboard_log)
 ## print(sql_file)
 ## print(config_$dashboard_log)
 ## sink()
+message(paste0("Purpose is:", purpose))
+
 if ("sql" %in% purpose) {  ## Extract from Oracle database
   print("Start extraction")
   ## system(paste0("java -jar ../dbExport.jar ../../dashboard/data/",
@@ -134,24 +136,89 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
   ##               ## config_$dashboard_log, " 2>&1"))
   ## out <- system2("ls", args = c("-lat"),
   ## system2("ls", args = c("-lat"),
-  system2("java",
-                 args = c("-jar",
-                          "../dbExport.jar",
-                          shQuote(paste0("../../dashboard/data/", sql_file, ".sql")),
-                          shQuote(paste0("../../data/", data_type, ".csv")),
-                          "reef",
-                          ## "reefmon"),
-                          "reefmon",
-                          ## paste0(">> ../../data/error.log 2>&1")),
-                          paste0(">> ", config_$dashboard_log, " 2>&1")),
-                          ## shQuote(paste0(">> ", "../../data/error.log", " 2>&1"))),
-                          ## shQuote(paste0(">> ", config_$dashboard_log, " 2>&1"))),
-                 wait = TRUE,
-          ## stdout = paste0(">> ", config_$dashboard_log),
-          ## stdout = "../../data/error.log",
-          ## stdout = sub("dashboard", "dash", config_$dashboard_log)
-          stderr = sub("dashboard", "dashboard_error", config_$dashboard_log)
-          )
+  if (sql_file == "juv") {
+    sql_file1 <- paste0(sql_file,"_1")
+    data_type1 <- paste0(data_type, "_1")
+    system2("java",
+            args = c("-jar",
+                     "../dbExport.jar",
+                     shQuote(paste0("../../dashboard/data/", sql_file1, ".sql")),
+                     shQuote(paste0("../../data/", data_type1, ".csv")),
+                     "reef",
+                     "reefmon",
+                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+            wait = TRUE,
+            stderr = sub("dashboard", "dashboard_error", config_$dashboard_log)
+            )
+    sql_file2 <- paste0(sql_file,"_2")
+    data_type2 <- paste0(data_type, "_2")
+    system2("java",
+            args = c("-jar",
+                     "../dbExport.jar",
+                     shQuote(paste0("../../dashboard/data/", sql_file2, ".sql")),
+                     shQuote(paste0("../../data/", data_type2, ".csv")),
+                     "reef",
+                     "reefmon",
+                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+            wait = TRUE,
+            stderr = sub("dashboard", "dashboard_error", config_$dashboard_log)
+            )
+    ## The following (as well as the sql's) was provided by Angus (although I have changed filenames)
+    ##- add in zeros prior to any aggregation 
+    points <- read_csv(paste0("../../data/", data_type1, ".csv"))  |> 
+      mutate(SITE_DEPTH = ifelse(P_CODE == "IN", SITE_DEPTH, 9)) 
+
+    avail_points_transect <- points |> 
+      filter(GROUP_CODE == "A" | BENTHOS_CODE == 'ST') |> 
+      group_by(P_CODE, AIMS_REEF_NAME, REEF_ZONE, SITE_DEPTH,
+               VISIT_NO, SITE_NO, TRANSECT_NO)  |> 
+      summarise(av_points = sum(POINTS)) |> 
+      ungroup() 
+
+    avail_proportion_transect <- points  |> 
+      group_by(P_CODE, AIMS_REEF_NAME, REEF_ZONE, SITE_DEPTH,
+               VISIT_NO, SITE_NO, TRANSECT_NO)  |> 
+      summarise(total_points = sum(POINTS)) |> 
+      ungroup() |> 
+      left_join(avail_points_transect) |> 
+      mutate(av_points = ifelse(is.na(av_points), 0, av_points),
+             AVAILABLE_SUBSTRATE = av_points / total_points) 
+
+    avail_substrate_site <- avail_proportion_transect |> 
+      group_by(P_CODE, AIMS_REEF_NAME, REEF_ZONE,
+               SITE_DEPTH, VISIT_NO, SITE_NO)  |> 
+      summarise(AVAILABLE_SUBSTRATE=mean(AVAILABLE_SUBSTRATE)) |> 
+      ungroup() |> 
+      mutate(AREA_TRANSECT = ifelse(P_CODE %in% c('RM','RAP','RMRAP'), 8.5,
+                           ifelse(VISIT_NO < 3, 17, 34))) 
+    
+    juv_data <- read_csv(paste0("../../data/", data_type2, ".csv"))  |> 
+      mutate(SITE_DEPTH = ifelse(P_CODE == 'IN', SITE_DEPTH, 9)
+             ## SURVEY_DATE = as.Date(SURVEY_DATE, format = "%d/%m/%Y")
+             ) |>
+      rename(REEFPAGE_CATEGORY = REEF_PAGE_CATEGORY) |> 
+      left_join(avail_substrate_site)
+    write_csv(juv_data, file = paste0("../../data/", data_type, ".csv"))
+  } else {
+    system2("java",
+            args = c("-jar",
+                     "../dbExport.jar",
+                     shQuote(paste0("../../dashboard/data/", sql_file, ".sql")),
+                     shQuote(paste0("../../data/", data_type, ".csv")),
+                     "reef",
+                     ## "reefmon"),
+                     "reefmon",
+                     ## paste0(">> ../../data/error.log 2>&1")),
+                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+            ## shQuote(paste0(">> ", "../../data/error.log", " 2>&1"))),
+            ## shQuote(paste0(">> ", config_$dashboard_log, " 2>&1"))),
+            wait = TRUE,
+            ## stdout = paste0(">> ", config_$dashboard_log),
+            ## stdout = "../../data/error.log",
+            ## stdout = sub("dashboard", "dash", config_$dashboard_log)
+            stderr = sub("dashboard", "dashboard_error", config_$dashboard_log)
+            )
+  }
   print("Extraction complete")
   print("Update databases")
   create_db_table_from_extract(config_$db_path,
@@ -219,8 +286,8 @@ if ("fit" %in% purpose) {  ## Fit models
     print("The domains")
     print(domains)
   }
-  print(paste0("Fit models for ", domains))
-  message(paste0("Fit models for ", domains))
+  ## print(paste0("Fit models for ", domains, " data scale is: ", data_scale))
+  message(paste0("Fit models for ", domains, " data scale: ", data_scale, " data_type: ", data_type ))
   if(length(domains)>0) {
     process <- processx::process$new("Rscript", 
                                      args = c("run_models.R",

@@ -5,7 +5,7 @@ if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 3, title = "Process data")
 
-for (s in  str_subset(status_$status[[3]]$items, "_pt$"))
+for (s in  str_subset(status_$status[[3]]$items, "_pt$|_manta$|_fish$"))
   status::remove_status_item(stage = 3, item = s)
 
 #######################################################################
@@ -42,7 +42,7 @@ lookup <- ltmp_group_lookup_juv(data)
 ## generate a vector of group names This will always be calculated but ##
 ## is only really relevant for reef level data                         ##
 #########################################################################
-data <- ltmp_reduce_groups_juv(data)
+data <- ltmp_reduce_groups_juv(data, lookup)
 
 ###################################################################################
 ## Processing steps                                                              ##
