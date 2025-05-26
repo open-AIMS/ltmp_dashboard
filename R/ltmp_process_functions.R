@@ -511,6 +511,7 @@ ltmp_process_points_juv <- function(data, data.spatial) {
               dplyr::select(-Latitude,-Longitude)) |>
     mutate(ZONE_DEPTH = interaction(REEF_ZONE, fDEPTH),
            SITE = factor(interaction(SITE_NO, REEF_ZONE, fDEPTH))) |>
+    filter(!is.na(AVAILABLE_SUBSTRATE)) |> 
     suppressMessages() |>
     suppressWarnings()
   },

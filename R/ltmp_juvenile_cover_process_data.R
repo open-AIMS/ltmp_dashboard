@@ -53,6 +53,8 @@ data <- ltmp_reduce_groups_juv(data, lookup)
 ## - count the number of points of each GROUP_CODE per REEF/SITE_NO/TRANSECT_NO  ##
 ## - generate a total number of points per REEF/SITE_NO/TRANSECT_NO              ##
 ## - calculate a percent cover for each GROUP_CODE (not for analyses)            ##
+## - remove cases for which the AVAILABLE_SUBSTRATE is NA.  These are due to     ##
+##   a mismatch in the timing of upload of juvenile counts and benthic data.     ##
 ###################################################################################
 data <- ltmp_process_points_juv(data, data.spatial)
 
