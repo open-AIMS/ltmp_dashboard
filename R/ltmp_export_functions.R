@@ -253,6 +253,7 @@ ltmp_export_data <- function(data_export) {
         to = remt_file_old,
         catalog_file = FALSE)
     }
+    gc(verbose = TRUE, full = TRUE)
     ## year_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_year_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year_posteriors.csv")
@@ -263,6 +264,7 @@ ltmp_export_data <- function(data_export) {
         to = remt_file,
         catalog_file = FALSE)
     }
+    gc(verbose = TRUE, full = TRUE)
     ## yearcomp_sum data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp.csv")
@@ -273,6 +275,7 @@ ltmp_export_data <- function(data_export) {
         to = remt_file,
         catalog_file = FALSE)
     }
+    gc(verbose = TRUE, full = TRUE)
     ## yearcomp_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp_posteriors.csv")
@@ -283,12 +286,14 @@ ltmp_export_data <- function(data_export) {
         to = remt_file,
         catalog_file = FALSE)
     }
+    gc(verbose = TRUE, full = TRUE)
   },
   stage_ = 4,
   order_ = 21,
   name_ = "Export data",
   item_ = "export_data"
   )
+  gc(verbose = TRUE, full = TRUE)
   return(invisible(NULL))
 }
 
