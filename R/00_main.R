@@ -28,8 +28,6 @@ source("ltmp_startup_functions.R")
 
 args <- commandArgs()
 
-## print(args)
-## print("more")
 
 if (ltmp_is_parent()) ltmp_start_matter(args)
 ## print(status::get_setting(element = "data_method"))
@@ -42,7 +40,7 @@ if (status::get_setting(element = "data_method") == "manta")
   source("ltmp_manta_cover.R")
 
 ## Juveniles analyses
-if (status::get_setting(element = "data_method") == "juveniles") 
+if (status::get_setting(element = "data_method") %in% c("juvenile", "juveniles")) 
   source("ltmp_juvenile_cover.R")
 
 ## Fish analyses
