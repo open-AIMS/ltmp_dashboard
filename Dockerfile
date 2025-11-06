@@ -1,6 +1,8 @@
 FROM rocker/geospatial:4.5.1
 
-RUN apt-get update -qq && apt-get -y --no-install-recommends install awscli
+RUN apt-get update -qq && apt-get -y --no-install-recommends install snap
+
+RUN snap install aws-cli --classic
 
 RUN apt-get -y --no-install-recommends install git
 
