@@ -16,7 +16,7 @@ RUN R -e "options(repos = \
   list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
   install.packages(c('emmeans','broom','knitr','ggspatial', 'broom.mixed','DHARMa','tidybayes','remotes')); \
   # install.packages('INLA',repos=c(getOption('repos'),INLA='https://inla.r-inla-download.org/R/stable'), dep=TRUE)"
-  remotes::install_version("INLA", version = "25.06.13", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/testing"), dep = TRUE)
+  remotes::install_version('INLA', version = '25.06.13', repos = c(getOption('repos'), INLA = 'https://inla.r-inla-download.org/R/testing'), dep = TRUE)"
 
 
 RUN R -e "options(repos = \
