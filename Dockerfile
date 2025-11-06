@@ -1,8 +1,13 @@
 FROM rocker/geospatial:4.5.1
 
-RUN apt-get update -qq && apt-get -y --no-install-recommends install snap
+RUN apt-get update -qq && apt-get -y --no-install-recommends install \
+  curl unzip groff less
 
-RUN snap install aws-cli --classic
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+  && unzip awscliv2.zip \
+  && ./aws/install \
+  && rm -rf aws awscliv2.zip \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get -y --no-install-recommends install git
 
