@@ -14,7 +14,7 @@ RUN apt-get -y --no-install-recommends install git
 RUN R -e "options(repos = \
   # list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2022-10-10/')); \
   list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
-  install.packages(c('emmeans','broom','knitr','ggspatial', 'broom.mixed','DHARMa','tidybayes','remotes')); \
+  install.packages(c('emmeans','broom','knitr','ggspatial', 'broom.mixed','DHARMa','tidybayes','remotes', 'HDInterval')); \
   # install.packages('INLA',repos=c(getOption('repos'),INLA='https://inla.r-inla-download.org/R/stable'), dep=TRUE)"
   remotes::install_version('INLA', version = '25.06.13', repos = c(getOption('repos'), INLA = 'https://inla.r-inla-download.org/R/testing'), dep = TRUE)"
 
@@ -27,6 +27,17 @@ RUN R -e "options(repos = \
   # list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2022-10-10/')); \
   list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
   remotes::install_github('open-AIMS/status', ref = 'main', force = TRUE)"
+
+## I am adding the following to address an issue where INLA tries to make use of
+## kernel mbind().  This is not permitted in docker.
+ENV MKL_ENABLE_INSTRUCTIONS=AVX2
+ENV MKL_DEBUG_CPU_TYPE=5
+ENV MKL_NUM_THREADS=1
+ENV MKL_DYNAMIC=FALSE
+ENV MKL_DISABLE_FAST_MM=1
+ENV KMP_AFFINITY=disabled
+ENV OPENBLAS_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
 
 #RUN git clone https://github.com/AIMS/LTMP_web_reporting.git
 
