@@ -28,17 +28,6 @@ RUN R -e "options(repos = \
   list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
   remotes::install_github('open-AIMS/status', ref = 'main', force = TRUE)"
 
-## I am adding the following to address an issue where INLA tries to make use of
-## kernel mbind().  This is not permitted in docker.
-ENV MKL_ENABLE_INSTRUCTIONS=AVX2
-ENV MKL_DEBUG_CPU_TYPE=5
-ENV MKL_NUM_THREADS=1
-ENV MKL_DYNAMIC=FALSE
-ENV MKL_DISABLE_FAST_MM=1
-ENV KMP_AFFINITY=disabled
-ENV OPENBLAS_NUM_THREADS=1
-ENV OMP_NUM_THREADS=1
-
 #RUN git clone https://github.com/AIMS/LTMP_web_reporting.git
 
 RUN mkdir -p /home/analysis /home/Project/R

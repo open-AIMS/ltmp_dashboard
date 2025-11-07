@@ -3,6 +3,7 @@
 ltmp_prepare_export <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    print("Preparing exporting data:")
     dat <-
       dat |>
       ## add units to data
@@ -228,6 +229,7 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
 ltmp_export_data <- function(data_export) {
   status::status_try_catch(
   {
+    print("Exporting data:")
     local_file <- paste0(
       status::get_setting(element = "data_path"),
       "modelled/",
@@ -243,6 +245,8 @@ ltmp_export_data <- function(data_export) {
     remt_file <- str_replace(remote_file, ".csv", "_year.csv")
     remt_file_old <- str_replace(remote_file, ".csv", ".csv")
     data_export$year_sum[[1]] |> write_csv(file = locl_file)
+    ## dt <- data_export$year_sum[[1]]
+    ## write_csv(dt, file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
@@ -253,18 +257,20 @@ ltmp_export_data <- function(data_export) {
         to = remt_file_old,
         catalog_file = FALSE)
     }
-    gc(verbose = TRUE, full = TRUE)
+    ## gc(verbose = TRUE, full = TRUE)
     ## year_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_year_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year_posteriors.csv")
     data_export$year_posteriors[[1]] |> write_csv(file = locl_file)
+    ## dt <- data_export$year_posteriors[[1]]
+    ## write_csv(dt, file = locl_file)
     if (status::get_setting(element = "data_from") == "AWS") {
       write_aws(
         from = locl_file,
         to = remt_file,
         catalog_file = FALSE)
     }
-    gc(verbose = TRUE, full = TRUE)
+    ## gc(verbose = TRUE, full = TRUE)
     ## yearcomp_sum data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp.csv")
@@ -275,7 +281,7 @@ ltmp_export_data <- function(data_export) {
         to = remt_file,
         catalog_file = FALSE)
     }
-    gc(verbose = TRUE, full = TRUE)
+    ## gc(verbose = TRUE, full = TRUE)
     ## yearcomp_posteriors data
     locl_file <- str_replace(local_file, ".csv", "_yearcomp_posteriors.csv")
     remt_file <- str_replace(remote_file, ".csv", "_yearcomp_posteriors.csv")
@@ -286,14 +292,14 @@ ltmp_export_data <- function(data_export) {
         to = remt_file,
         catalog_file = FALSE)
     }
-    gc(verbose = TRUE, full = TRUE)
+    ## gc(verbose = TRUE, full = TRUE)
   },
   stage_ = 4,
   order_ = 21,
   name_ = "Export data",
   item_ = "export_data"
   )
-  gc(verbose = TRUE, full = TRUE)
+  ## gc(verbose = TRUE, full = TRUE)
   return(invisible(NULL))
 }
 

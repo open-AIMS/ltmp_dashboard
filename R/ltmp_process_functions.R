@@ -631,7 +631,8 @@ ltmp_calc_density_fish <- function(data) {
     ## As of May 2025, there is a new lookup.
     ## Mike produced a file (dahsboard fish groups for murray.csv) which I have
     ## renamed to dashboard_fish_groups.csv
-    trophic_groups <- read_csv('../data/parameters/dashboard_fish_groups.csv')
+    trophic_groups <- read_csv('../data/parameters/dashboard_fish_groups.csv',
+                               show_col_type = FALSE)
     ## trophic_groups <- read_csv('../data/parameters/MPA paper trophic groups.csv')
 
     ## For calculating fish density (and thus biomass per area), we need to
@@ -640,21 +641,26 @@ ltmp_calc_density_fish <- function(data) {
     ## transect means that we must multiply the abundance by 20
     ## whereas it is 4 for larger fishes.
     ## Load lookup that indicates which fish codes are at narrower search areas
-    densities <- read_csv('../data/parameters/density_table.csv')
+    densities <- read_csv('../data/parameters/density_table.csv',
+                               show_col_type = FALSE)
     ## For calculating biomass, the following formula is used:
     ## Density*A*Length^B  where A and B are species specific coefficients
     ## provided in the following:
-    lw_conv <- read_csv('../data/parameters/L-W co-effs.csv')
+    lw_conv <- read_csv('../data/parameters/L-W co-effs.csv',
+                               show_col_type = FALSE)
 
     data <-
       data |>
       ## filter(ABUNDANCE>0) |>      #remove the taxa that have ABUNDANCE==0
-      left_join(trophic_groups) |>
+      left_join(trophic_groups,
+                by = c("FAMILY", "FISH_CODE", "GENUS")) |>
       dplyr::rename(Trophic = Dashboard_trophic) |> 
-      left_join(densities) |>
+      left_join(densities,
+                by = "FISH_CODE") |>
       mutate(AREA = ifelse(is.na(AREA), 4, AREA),
              DENSITY = ABUNDANCE * AREA) |>
-      left_join(lw_conv) |>
+      left_join(lw_conv,
+                by = "FISH_CODE") |>
       mutate(BIOMASS = DENSITY * A * LENGTH^B) |>
       dplyr::select(-AREA, -A, -B) |>
       suppressMessages() |>
@@ -719,7 +725,7 @@ ltmp_lookup_sizes_fish <- function(data) {
                             "Small fishes", "Large fishes"),
              tempGROUP = ifelse(Group=="Small fishes", GENUS, FAMILY)) |>
       group_by(Group, tempGROUP, fish_sub) |>
-      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
+      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
       ungroup() |>
       group_by(Group) |>
       arrange(Group, fish_sub, -Sum)  |>
@@ -776,7 +782,7 @@ ltmp_lookup_h_fish <- function(data) {
              ) |>
       dplyr::filter(Group != "Other") |>
       group_by(Group, tempGROUP, fish_sub) |>
-      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE)) |>
+      summarise(Sum = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
       filter(!is.na(tempGROUP)) |>
       ungroup() |>
       group_by(Group, fish_sub) |>
@@ -816,7 +822,7 @@ ltmp_process_sizes_fish <- function(data, lookup_sizes) {
       group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
                REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO,
                Group, fGROUP, fish_sub) |>
-      summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+      summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
       ungroup()
   },
   stage_ = 3,
@@ -839,7 +845,7 @@ ltmp_process_total_fish <- function(data, data_sum) {
       bind_rows(data |>
                 group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE, REPORT_YEAR,
                          SURVEY_DATE, SITE_NO, TRANSECT_NO, FAMILY, fish_sub) |>
-                summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+                summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
                 mutate(Group = "Total fishes", fGROUP = FAMILY)) |>
       dplyr::select(-FAMILY) |>
       ungroup()
@@ -886,11 +892,12 @@ ltmp_process_h_fish <- function(data, lookup_h, data_sum) {
         ##                      tempGROUP else NA  #only for reef level analyses
         ##        ) |>
         dplyr::filter(Group != "Other") |>
-        left_join(lookup_h) |> #, by = c("Group", "tempGROUP")) |>
+        ## left_join(lookup_h) |> #, by = c("Group", "tempGROUP")) |>
+        left_join(lookup_h, by = c("fish_sub", "Group", "tempGROUP")) |>
         mutate(fGROUP = ifelse(is.na(fGROUP), "Other", fGROUP)) |>
         group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
                  REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP, fish_sub) |>
-        summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE)) |>
+        summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
         ungroup()
       )
   },
@@ -923,7 +930,9 @@ ltmp_process_trout_fish <- function(data, data_sum) {
                          REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP) |>
                 summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE),
                           ## Biomass = sum(BIOMASS, na.rm = TRUE)) |>
-                          Biomass = sum(BIOMASS, na.rm = TRUE)/1000) |>   ## Express in kg rather than g to help the model
+                          Biomass = sum(BIOMASS, na.rm = TRUE)/1000,   ## Express in kg rather than g to help the model
+                          .groups = "keep"
+                ) |>
                 ungroup() |> 
                 mutate(fish_sub = "restricted")
                 ) 

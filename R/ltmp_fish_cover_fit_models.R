@@ -127,6 +127,7 @@ null <- data |> ltmp_export_raw_data_pt()
 ## - poisson (Abundance)                                             ##
 #######################################################################
 data <- data |> ltmp_fit_inla_fish()
+gc(verbose = FALSE, full = TRUE)
 
 #######################################################################
 ## Calculate posteriors                                              ##
@@ -151,6 +152,7 @@ data <- data |> ltmp_choose_model()
 
 filenm <- str_replace(data$label[[1]], "([^_]*_[^_]*_[^_]*)_.*", "\\1")
 saveRDS(data, file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
+## data <- readRDS(file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
 
 #######################################################################
 ## Generate a plot that compares cellmeans from raw and each model   ##

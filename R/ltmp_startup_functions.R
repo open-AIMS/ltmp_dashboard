@@ -147,6 +147,7 @@ ltmp_parse_cla <- function(args) {
       if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
       log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
       print(paste("log_file = ", log_file))
+      ## print(paste0('touch "',log_file,'"'))
       if (!file.exists(log_file)) file.create(log_file)
       if (file.exists(log_file)) unlink(log_file)
       assign("log_file", log_file, envir = .GlobalEnv)

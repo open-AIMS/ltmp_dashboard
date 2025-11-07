@@ -377,8 +377,8 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
                                                                   mean(DATE, na.rm = TRUE),
                                                                   as.Date(paste0(unique(fYEAR), '-01-01')))) |>
                                          dplyr::select(fYEAR, DATE) |>
-                                         distinct()
-                                         ## by = "fYEAR"
+                                         distinct(),
+                                         by = "fYEAR"
                                          )
                              newdata
                            }
@@ -404,18 +404,20 @@ ltmp_raw_data_summaries_pt <- function(dat) {
                                mutate(cover = COUNT/TOTAL) |> 
                                group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
                                summarise(cover = sum(cover),
-                                         TOTAL = sum(TOTAL)) |>
+                                         TOTAL = sum(TOTAL),
+                                         .groups = "keep") |>
                                ungroup() |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(cover),
                                          Median = median(cover),
-                                         Total.count = sum(TOTAL)) |>
+                                         Total.count = sum(TOTAL),
+                                         .groups = "keep") |>
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
                                          Median = median(Median),
-                                         Total.count = sum(Total.count)
-                                         ) |>
+                                         Total.count = sum(Total.count),
+                                         .groups = "keep") |>
                                as.data.frame()
                            }
                            ))
@@ -570,7 +572,7 @@ get_model_posteriors <- function(mod_str, data.group) {
   if ("COUNT" %in% names(data.group)) {  ## Photo-transect only
   replace_0 <- data.group %>%
     group_by(fYEAR, fGROUP, .drop = FALSE) %>%
-    summarise(Sum = sum(COUNT))
+    summarise(Sum = sum(COUNT), .groups = "keep")
   } else {  # Juveniles have a different way of dealing with this
     replace_0 <- tribble(~fYEAR, ~fGROUP, ~Sum)
   }
@@ -688,7 +690,8 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
     dplyr::select(fYEAR, fGROUP, REPORT_YEAR, DATE) |>
     ## cbind(plogis(cellmeans)) %>%
     cbind(inv_link(cellmeans)) %>%
-    rename_with(function(x) x <- 1, matches("plogis")) %>%
+    ## rename_with(function(x) x <- "1", matches("plogis")) %>%
+    rename_with(~sub("plogis", "1", .x), matches("plogis")) %>% 
     pivot_longer(cols = matches("[0-9]"), names_to = ".draw")
   if (nrow(replace_0) > 0) {
     newdata <- newdata |>
@@ -699,7 +702,7 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
   newdata <- newdata |>
     droplevels() %>%
     group_by(fYEAR, fGROUP, REPORT_YEAR, DATE, .draw) %>%
-    summarise(value = sum(value)) %>%
+    summarise(value = sum(value), .groups = "keep") %>%
     ungroup() |>
     ## if there are still NAs, replace with 0.  these NA values are for fGROUPs
     ## that are not present in the data in that year
@@ -720,7 +723,7 @@ get_year_posteriors <- function(newdata, cellmeans, replace_0, inv_link) {
   }
   newdata <- newdata |>
     group_by(fYEAR,REPORT_YEAR, DATE, .draw) %>%
-    summarise(value = sum(value, na.rm = TRUE)) %>%
+    summarise(value = sum(value, na.rm = TRUE), .groups = "keep") %>%
     ungroup()
   newdata 
 }
@@ -746,6 +749,7 @@ get_yearcomp_posteriors <- function(newdata, year_posteriors) {
         value = as.vector(as.vector(value) %*%
                           t(cbind(1, -1 * model.matrix(~fYEAR)[-1, -1]))),
         YearComp = paste0(first(fYEAR), "-", fYEAR[-1]),
+        .groups = "keep"
         ) |>
       dplyr::select(YearComp, .draw, value, frac) 
   }
@@ -767,7 +771,8 @@ get_all_yearcomp_posteriors <- function(newdata, year_posteriors) {
       summarise(
         frac = exp(as.vector(as.vector(log(value)) %*% as.matrix(xmat))),
         value = as.vector(as.vector(value) %*% as.matrix(xmat)),
-        YearComp = names(xmat)
+        YearComp = names(xmat),
+        .groups = "keep"
         ) |>
       dplyr::select(YearComp, .draw, value, frac) 
   }
@@ -1019,25 +1024,26 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                                  dg <- 
                                    data_group |> 
                                    group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                                   summarise(value = sum(PERC_COVER)) |>
+                                   summarise(value = sum(PERC_COVER), .groups = "keep") |>
                                    ungroup() 
                                } else if (resp == "ABUNDANCE" & data_method == "fish") {
                                  dg <- 
                                    data_group |> 
                                    group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                                   summarise(value = sum(ABUNDANCE)) |>
+                                   summarise(value = sum(ABUNDANCE), .groups = "keep") |>
                                    ungroup() 
                                } else if (resp == "ABUNDANCE" & data_method == "juveniles") {
                                  dg <- 
                                    data_group |> 
                                    group_by(REPORT_YEAR, REEF, fDEPTH, SITE_NO) |>
-                                   summarise(value = sum(ABUNDANCE / AVAILABLE_SUBSTRATE)) |>
+                                   summarise(value = sum(ABUNDANCE / AVAILABLE_SUBSTRATE),
+                                            .groups = "keep" ) |>
                                    ungroup() 
                                } else if (resp == "Biomass") {
                                  dg <- 
                                    data_group |> 
                                    group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                                   summarise(value = sum(Biomass)) |>
+                                   summarise(value = sum(Biomass), .groups = "keep") |>
                                    ungroup() 
                                }
 
@@ -1045,7 +1051,7 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                                dg <- 
                                  data_group |> 
                                  group_by(REPORT_YEAR, REEF, fDEPTH) |>
-                                 summarise(value = mean(Cover)) |>
+                                 summarise(value = mean(Cover), .groups = "keep") |>
                                  mutate(TRANSECT_NO = NA) |> 
                                  ungroup()
                              }
@@ -1279,7 +1285,7 @@ ltmp_delete_non_selected_models <- function(data) {
         )
       )
     }
-    ## Delete the selected model (not derivatives) as well
+    ## ## Delete the selected model (not derivatives) as well
     files <- data |>
       ungroup() |>
       filter(selected) |>
@@ -1337,15 +1343,17 @@ ltmp_raw_data_summaries_juv <- function(dat) {
                              data_group |> 
                                mutate(cover = ABUNDANCE / AVAILABLE_SUBSTRATE) |> 
                                group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, fYEAR) |>
-                               summarise(cover = sum(cover)) |> 
+                               summarise(cover = sum(cover), .groups = "keep") |> 
                                ungroup() |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(cover),
-                                         Median = median(cover)) |> 
+                                         Median = median(cover),
+                                         .groups = "keep") |> 
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
-                                         Median = median(Median)) |> 
+                                         Median = median(Median),
+                                         .groups = "keep") |> 
                                as.data.frame() |>
                                suppressMessages() |>
                                suppressWarnings()
@@ -1576,11 +1584,13 @@ ltmp_raw_data_summaries_manta <- function(dat) {
                              data_group |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(Cover),
-                                         Median = median(Cover)) |> 
+                                         Median = median(Cover),
+                                         .groups = "keep") |> 
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
-                                         Median = median(Median)) |> 
+                                         Median = median(Median),
+                                         .groups = "keep") |> 
                                as.data.frame() |>
                                suppressMessages() |>
                                suppressWarnings()
@@ -1697,16 +1707,18 @@ ltmp_raw_data_summaries_fish <- function(dat) {
                               data_group |> 
                                 mutate(value = get(model_response)) |> 
                                 group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
-                                summarise(value = sum(value)) |> 
+                                summarise(value = sum(value), .groups = "keep") |> 
                                 ungroup() |> 
                                 group_by(REEF, fYEAR) |> 
                                 summarise(Mean = mean(value),
-                                          Median = median(value)
+                                          Median = median(value),
+                                          .groups = "keep"
                                           ) |>
                                 ungroup() |> 
                                 group_by(fYEAR) |> 
                                 summarise(Mean = mean(Mean),
-                                          Median = median(Median)
+                                          Median = median(Median),
+                                          .groups = "keep"
                                           ) |>
                                 as.data.frame()
                             }
