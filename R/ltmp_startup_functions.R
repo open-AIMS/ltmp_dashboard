@@ -98,7 +98,7 @@ ltmp_parse_cla <- function(args) {
             ## ## DATA_METHOD <- gsub('[^/]*//[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
             ## ## status::add_setting(element = "data_method", item = DATA_METHOD, name = "Data type")
             has_data_program_argument <- any(grepl("--data_program=.*", args, perl = TRUE))
-            if (!has_data_program_argment) {
+            if (!has_data_program_argument) {
               DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
               status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
             }
