@@ -1242,12 +1242,13 @@ ltmp_choose_model <- function(dat) {
                          ## mutate(Mean = ifelse(model_type == "Biomass", Mean_biomass, Mean))
                          raw |>
                            full_join(posts, by = "fYEAR") |>
-                           summarise(SS = sum((Mean-median)^2, na.rm = TRUE))
+                           summarise(SS = sum((Mean-median)^2, na.rm = TRUE),
+                                     SS2 = sum((Mean-mean)^2, na.rm = TRUE))
                        }
                        )) |>
       unnest(SS) |>
       group_by(splits, .add = TRUE) |> 
-      mutate(selected = is_first_min(SS)) |> 
+      mutate(selected = is_first_min(SS2)) |>   ## go with the mean as it will be sensitive to waky upper CI's
       ungroup(model_type, splits)
     comp
   },

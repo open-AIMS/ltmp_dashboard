@@ -727,8 +727,10 @@ ltmp_lookup_sizes_fish <- function(data) {
       group_by(Group, tempGROUP, fish_sub) |>
       summarise(Sum = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
       ungroup() |>
-      group_by(Group) |>
-      arrange(Group, fish_sub, -Sum)  |>
+      group_by(Group, fish_sub) |>
+      arrange(-Sum) |> 
+      ## group_by(Group) |>
+      ## arrange(Group, fish_sub, -Sum)  |>
       mutate(Common = 1:n()) |>
       mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
       ungroup() |>
@@ -786,7 +788,8 @@ ltmp_lookup_h_fish <- function(data) {
       filter(!is.na(tempGROUP)) |>
       ungroup() |>
       group_by(Group, fish_sub) |>
-      arrange(Group, fish_sub, -Sum) |>
+      ## arrange(Group, fish_sub, -Sum) |>
+      arrange(-Sum) |>
       mutate(Common = 1:n()) |>
       mutate(fGROUP = ifelse(Common<7, tempGROUP, "Other")) |>
       ungroup() |>
