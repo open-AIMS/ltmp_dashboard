@@ -1,5 +1,5 @@
 FAMILY,FISH_CODE,GENUS,SPECIES,Dashboard_trophic,Dashboard_harvested,Dashboard_large,Dashboard_trout,Dashboard_herbivores,Orig LTMP,Dashboard species list
-Acanthuridae,ACA.ALBI,Acanthurus,albipectoralis,Planktivores,no,yes,no,yes,yes,restricted
+Acanthuridae,ACA.ALBI,Acanthurus,albipectoralis,Planktivores,no,yes,no,no,yes,restricted
 Acanthuridae,ACA.AURA,Acanthurus,auranticavus,Detritivores,no,yes,no,yes,yes,restricted
 Acanthuridae,ACA.BARI,Acanthurus,bariene,Detritivores,no,yes,no,yes,yes,restricted
 Acanthuridae,ACA.BLOC,Acanthurus,blochii,Detritivores,no,yes,no,yes,yes,restricted
@@ -17,20 +17,20 @@ Acanthuridae,ACA.NUDA,Acanthurus,nigricauda,Detritivores,no,yes,no,yes,yes,restr
 Acanthuridae,ACA.OLIV,Acanthurus,olivaceus,Detritivores,no,yes,no,yes,yes,restricted
 Acanthuridae,ACA.PYRO,Acanthurus,pyroferus,Croppers,no,yes,no,yes,yes,restricted
 Acanthuridae,ACA.THOM,Acanthurus,thompsoni,Planktivores,no,yes,no,no,yes,restricted
-Acanthuridae,ACA.TRIO,Acanthurus,triostegus,Omnivore,no,yes,no,yes,yes,restricted
-Acanthuridae,ACA.XANT,Acanthurus,xanthopterus,Omnivore,no,yes,no,yes,yes,restricted
+Acanthuridae,ACA.TRIO,Acanthurus,triostegus,Omnivore,no,yes,no,no,yes,restricted
+Acanthuridae,ACA.XANT,Acanthurus,xanthopterus,Omnivore,no,yes,no,no,yes,restricted
 Acanthuridae,CTE.BINO,Ctenochaetus,binotatus,Detritivores,no,yes,no,yes,no,restricted
 Acanthuridae,CTE.CYAN,Ctenochaetus,strigosus,Detritivores,no,yes,no,yes,no,restricted
 Acanthuridae,CTE.GROP,Ctenochaetus,spp,Detritivores,no,yes,no,yes,yes,restricted
 Acanthuridae,CTE.STRI,Ctenochaetus,striatus,Detritivores,no,yes,no,yes,no,restricted
-Acanthuridae,NAS.ANNU,Naso,annulatus,Planktivores,no,yes,no,yes,no,expanded
+Acanthuridae,NAS.ANNU,Naso,annulatus,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.BRAC,Naso,brachycentron,Browsers,no,yes,no,yes,no,expanded
-Acanthuridae,NAS.BREV,Naso,brevirostris,Planktivores,no,yes,no,yes,no,expanded
+Acanthuridae,NAS.BREV,Naso,brevirostris,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.CAER,Naso,caeruleacauda,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.CAES,Naso,caesius,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.HEXA,Naso,hexacanthus,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.LITU,Naso,lituratus,Browsers,no,yes,no,yes,yes,restricted
-Acanthuridae,NAS.THOR,Naso,thorpei,Planktivores,no,yes,no,,no,expanded
+Acanthuridae,NAS.THOR,Naso,thorpei,Planktivores,no,yes,no,no,no,expanded
 Acanthuridae,NAS.TONG,Naso,tonganus,Browsers,no,yes,no,yes,yes,restricted
 Acanthuridae,NAS.UNIC,Naso,unicornis,Browsers,no,yes,no,yes,yes,restricted
 Acanthuridae,NAS.VLAM,Naso,vlamingii,Planktivores,no,yes,no,no,no,expanded
@@ -480,7 +480,7 @@ Pomacentridae,POM.PHIL,Pomacentrus,philippinus,Omnivore,no,no,no,no,yes,restrict
 Pomacentridae,POM.REID,Pomacentrus,reidi,Omnivore,no,no,no,no,yes,restricted
 Pomacentridae,POM.SIMS,Pomacentrus,simsiang,Omnivore,no,no,no,no,yes,restricted
 Pomacentridae,POM.TRIP,Pomacentrus,tripunctatus,Farmers,no,no,no,yes,yes,restricted
-Pomacentridae,POM.VAIU,Pomacentrus,vaiuli,Omnivore,no,no,no,yes,yes,restricted
+Pomacentridae,POM.VAIU,Pomacentrus,vaiuli,Omnivore,no,no,no,no,yes,restricted
 Pomacentridae,POM.WARD,Pomacentrus,wardi,Farmers,no,no,no,yes,yes,restricted
 Pomacentridae,PCH.RICH,Pomachromis,richardsoni,Omnivore,no,no,no,no,yes,restricted
 Pomacentridae,PRE.BIAC,Premnas,biaculeatus,Omnivore,no,no,no,no,yes,restricted
@@ -593,7 +593,7 @@ Serranidae,PSU.TUKA,Pseudanthias,tuka,Planktivores,no,no,no,no,no,expanded
 Serranidae,VAR.ALBI,Variola,albimarginata,Carnivore,yes,yes,yes,no,yes,restricted
 Serranidae,VAR.LOUT,Variola,louti,Carnivore,yes,yes,yes,no,yes,restricted
 Siganidae,SIG.ARGE,Siganus,argenteus,Browsers,no,yes,no,yes,yes,restricted
-Siganidae,SIG.CANA,Siganus,canaliculatus,Omnivore,no,yes,no,yes,yes,restricted
+Siganidae,SIG.CANA,Siganus,canaliculatus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.CORA,Siganus,corallinus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.DOLI,Siganus,doliatus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.FUSC,Siganus,fuscescens,Browsers,no,yes,no,yes,yes,restricted
@@ -601,7 +601,7 @@ Siganidae,SIG.JAVU,Siganus,javus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.LINE,Siganus,lineatus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.PMUS,Siganus,punctatissimus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.PTUS,Siganus,punctatus,Browsers,no,yes,no,yes,yes,restricted
-Siganidae,SIG.PUEL,Siganus,puellus,Omnivore,no,yes,no,yes,yes,restricted
+Siganidae,SIG.PUEL,Siganus,puellus,Omnivore,no,yes,no,no,yes,restricted
 Siganidae,SIG.SPIN,Siganus,spinus,Browsers,no,yes,no,yes,yes,restricted
 Siganidae,SIG.VULP,Siganus,vulpinus,Browsers,no,yes,no,yes,yes,restricted
 Sphyraenidae,SPY.BARR,Sphyraena,barracuda,Carnivore,no,yes,no,no,no,expanded
