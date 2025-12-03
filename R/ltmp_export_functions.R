@@ -188,6 +188,7 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
                   ## REEFPAGE_CATEGORY=fGROUP,
                   REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
+                  TYPE = variable,
                   YearComp,
                   mean, median, lower, upper) |> 
     filter(!is.na(median)) |> 
@@ -219,6 +220,7 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
                   ## REEFPAGE_CATEGORY=fGROUP,
                   REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
+                  TYPE = variable,
                   YearComp,
                   .draw, value, frac) 
   return(export) 
@@ -240,6 +242,8 @@ ltmp_export_data <- function(data_export) {
       "output/",
       status::get_setting(element = "csv_file")
     )
+    print(paste("local file:", local_file))
+    print(paste("remote file:", remote_file))
     ## year_sum data
     locl_file <- str_replace(local_file, ".csv", "_year.csv")
     remt_file <- str_replace(remote_file, ".csv", "_year.csv")
