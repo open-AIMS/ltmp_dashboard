@@ -180,7 +180,7 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
       DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
       DATA_TYPE = model_type,
       DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
-      UNITS = .units,
+      UNITS = ifelse(variable == "value", "absolute change", "fold change"),
       SUB_MODEL = sub_model) |>
     dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
                   DATA_METHOD, DATA_TYPE, UNITS,
@@ -188,7 +188,7 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
                   ## REEFPAGE_CATEGORY=fGROUP,
                   REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
-                  TYPE = variable,
+                  UNITS,
                   YearComp,
                   mean, median, lower, upper) |> 
     filter(!is.na(median)) |> 
@@ -220,7 +220,6 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
                   ## REEFPAGE_CATEGORY=fGROUP,
                   REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
-                  TYPE = variable,
                   YearComp,
                   .draw, value, frac) 
   return(export) 
