@@ -3,7 +3,7 @@ name: Create and publish the dev Docker image
 on:
   workflow_dispatch:
   push:
-    branches: [ "gc-test" ]
+    branches: [ "local-output" ]
 
 env:
   REGISTRY: ghcr.io
@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: gc-test
+          ref: local-output
         
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1

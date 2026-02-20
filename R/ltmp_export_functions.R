@@ -259,6 +259,9 @@ ltmp_export_data <- function(data_export) {
         from = locl_file,
         to = remt_file_old,
         catalog_file = FALSE)
+    } else if (status::get_setting(element = "data_from") == "local copy") {
+      file.copy(from = locl_file, to = remt_file, overwrite = TRUE)
+      file.copy(from = locl_file, to = remt_file_old, overwrite = TRUE)
     }
     ## gc(verbose = TRUE, full = TRUE)
     ## year_posteriors data
