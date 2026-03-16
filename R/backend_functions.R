@@ -5,7 +5,6 @@
 ## If no, get those info from the data structures
 ## Filter the entries to relevant candidates
 get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
-  ## alert("here")
   if(!does_db_table_exist("models")) {
     models <- get_config_models() |>
         filter(data_type %in% data_types,
@@ -79,9 +78,13 @@ create_db_table_from_extract <- function(db_path, data_type, csv_file) {
 }
 
 create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
+  ## cat(db_path, "\n", file = "~/data/data_info.txt", append = FALSE)
+  ## cat(csv_file, "\n", file = "~/data/data_info.txt", append = TRUE)
+  ## cat(getwd(), "\n", file = "~/data/data_info.txt", append = TRUE)
   if (data_type == "photo-transect") {
     out2 <- system(paste0(
-      "cut -d, -f17,6,28,9 < ", csv_file, " | uniq |
+      ## "cut -d, -f6,9,29,17 < ", csv_file, " | uniq |
+      "cut -d, -f17,6,29,9 < ", csv_file, " | uniq |
     Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
     input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
     group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
@@ -90,6 +93,10 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
     "
     ),
     intern = TRUE)
+
+  ## cat(config_$db_path, "\n", file = "~/data/data_info.txt")
+  ## dtt <- as.data.frame(out2) |> head()
+  ## cat(dtt, "\n", file = "~/data/data_info.txt", append = TRUE)
   }
   if (data_type == "manta") {
     out2 <- system(paste0(
@@ -127,9 +134,14 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
     ),
     intern = TRUE)
   }
+  ## system2("touch", "~/data/AAAAAAAAAAAAAAAAA3.log")
+  ## cat(config_$db_path, "\n", file = "~/data/data_info.txt")
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   ## dbWriteTable(con, paste0(data_type, "_sum1"), out2, overwrite = TRUE)
   data_info <- file.mtime(csv_file)
+  ## cat(csv_file, "\n", file = "~/data/data_info.txt", append = TRUE)
+  ## cat(data_info, "\n", file = "~/data/data_info.txt", append = TRUE)
+  ## write_csv(data_info, "~/data/data_info.csv")
   data <- as.data.frame(out2) |> 
     slice(-1)  |> 
     separate(everything(),
@@ -180,10 +192,15 @@ make_dashboard_summary <- function(method, scale) {
   data <- tibble("Blank")
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   tbls <- dbListTables(con) 
+  cat(paste0("Method:", method,  " scale:", scale, "\n"),
+      file = "~/data/dashboard_run.log", append = TRUE)
+  cat(paste0("tbls avail:", paste0("\n\t-", tbls, collapse = ""), "\n"),
+      file = "~/data/dashboard_run.log", append = TRUE)
   if (scale %in% c("reef", "sql") &
       paste0(method, "_sum") %in% tbls) {
     if (scale == "sql") {
       db_tbl <- paste0(method, "_sum")
+      ## alert(db_tbl)
       data <- tbl(con, db_tbl) 
       ## alert(paste("make_dashboard_summary:",db_tbl))
       ## alert(colnames(data))
@@ -323,7 +340,17 @@ make_dashboard_summary <- function(method, scale) {
         distinct(),
         by = setNames("domain_name", scale)) |> 
       dplyr::rename(setNames("extract_data_hash", paste0(scale, "_extract_data_hash"))) 
+
+    cat(paste0("data rows from ", method,"_sum:", nrow(data), "\n"),
+        file = "~/data/dashboard_run.log", append = TRUE)
     if ("models" %in% tbls) {
+      mod_data <-
+        tbl(con, "models") |>
+        filter(data_type == method,
+               data_scale == scale) |> 
+        select(domain_name,
+               !!sym(paste0(scale, "_model_date")) := model_date,
+               paste0(scale, "_model_data_hash"))
       data <- data |> 
         left_join(tbl(con, "models") |>
                   filter(data_type == method,
@@ -332,10 +359,14 @@ make_dashboard_summary <- function(method, scale) {
                          !!sym(paste0(scale, "_model_date")) := model_date,
                          paste0(scale, "_model_data_hash")),
                   by = setNames("domain_name", scale)) 
+      cat(paste0("data rows from models:", nrow(data), "\n"),
+          file = "~/data/dashboard_run.log", append = TRUE)
     }
     data <- data |> 
       collect() |>
       distinct()
+    cat(paste0("data rows from both:", nrow(data), "\n"),
+        file = "~/data/dashboard_run.log", append = TRUE)
   }
   if (!is.null(data)) {
     ## alert(length(data$sector_model_date))
@@ -352,7 +383,8 @@ make_dashboard_summary <- function(method, scale) {
 }
 
 ## Retrieve data from database models table
-get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
+## please use the version in ~/dashboard/dashboard_config.R
+get_db_model_data1 <- function(method = NULL, scale = NULL, domain = NULL) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   data <- 1
   data <- tbl(con, "models") |>
@@ -384,19 +416,26 @@ get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
 ##    2.2. join in metadata
 ## 3. replace model database
 update_db_models <- function() {
+  cat(paste0("make_db_models:", "from:", deparse(sys.call(-1)), ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
   ## Start by gleaning the info by scanning through the models folders
   fls <- list.files(config_$model_path,
                     recursive = TRUE, full.names = TRUE)
   ## write.csv(fls, file = "../data/temp1.csv")
   fls_wch <- str_detect(basename(fls), "^[^_]*_[^_]*_[^_]*\\.rds$")
+  ## exclude the posteriors
+  fls_wch1 <- str_detect(fls, "posteriors", negate = TRUE)
+  ## exclude any with *either sum.rds, sums.rds, raw_data.rds
+  fls_wch2 <- str_detect(fls, "sums+.rds|raw_data.rds", negate = TRUE)
+  fls_wch <- fls_wch & fls_wch1 & fls_wch2
   ## write.csv(fls_wch, file = "../data/temp2.csv")
   models <- tibble(path = unique(fls[fls_wch])) |> 
     mutate(mod = map(.x = path,
                      .f = ~ {
-                       ss <- readRDS(.x)$label |>
+                       ss <- readRDS(.x)
+                       selected_flag <- ss$selected
+                       ss <- ss$label |>
                                        unlist() |>
                                        unique()
-                       selected_flag <- readRDS(.x)$selected
                        ## hash <- digest(.x, algo = "sha256", file = TRUE)
                        mtime <- file.mtime(.x)
                        tibble(str = ss) |>
@@ -417,10 +456,12 @@ update_db_models <- function() {
                                 sector_model_data_hash = "",
                                 nrm_model_data_hash = "",
                                 selected_flag) |> 
+                         filter(selected_flag) |> 
                          as.data.frame()
                      })) |>
     unnest(c(mod)) |>
-    dplyr::rename(model_path = path) |> 
+    ## dplyr::rename(model_path = path) |> 
+    dplyr::mutate(model_path = path) |> 
     mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale))
 
   write.csv(models, file = "../data/temp1.csv")
@@ -432,6 +473,7 @@ update_db_models <- function() {
     models <- models_db |>
       full_join(models |>
                 dplyr::select(-matches(".*\\_hash$|^path$|^model\\_.*")),
+                ## dplyr::select(-matches(".*\\_hash$|^path$")),
                 by = c("data_type" = "data_type",
                        "data_scale" = "data_scale",
                        "domain_name" = "domain_name",
@@ -440,19 +482,45 @@ update_db_models <- function() {
                        "reef_zone" = "reef_zone",
                        "depth" = "depth",
                        "shelf",
-                       "model_type",
+                       ## "model_type",
                        "sub_model",
                        "selected_flag")) 
   }
-  write_csv(models, file = paste0(config_$data_path, "models.csv")) 
+  ## write_csv(models, file = paste0(config_$data_path, "models.csv")) 
   con <- dbConnect(RSQLite::SQLite(), dbname = config_$db_path)
   copy_to(con, models, name = "models", temporary = FALSE, overwrite = TRUE)
   dbDisconnect(con)
   models
 }
 
+## get_env_name <- function(env = environment()) {
+##  environmentName(environment()) 
+## }
+## get_function_name <- function(f) {
+##   e <- parent.env(environment())  # e.g. globalenv()
+##   ## f <- sys.function(0)            # the current function object
+##   nms <- ls(envir = e)
+##   for (n in nms) {
+##     if (identical(f, get(n, envir = e))) return(n)
+##   }
+##   return(NA_character_)
+## }
+
 ## Get a hash of the data after extracting, processing and bucketing
 make_data_hash <- function(method, scale, domain) {
+  cat(paste0("make_data_hash:", ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## xn <- environmentName(parent.env(environment()))
+  ## f <-get_function_name(f = sys.function()) 
+  ## f <-get_function_name(f = sys.function(-1)) 
+  ## f <- sys.calls()
+  ## cat(paste0("make_data_hash:", xn, "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## cat(paste0("make_data_hash:", f, "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## cat(paste0("make_data_hash:", "from:",
+  ##            sys.calls(),
+  ##            ## parent.env(environment()),"  ", 
+  ##            ## paste0(str_replace_all(deparse(sys.call(-1)), "\n", ","), collapse = ","),
+  ##            ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  original_method <- method
   method <- ifelse(method == "juveniles", "juvenile", method) ## for the juveniles method, the path is juvenile not juveniles
   data_paths <- paste0(config_$data_path, method)
   data_scale <- case_when(scale == "reef" ~ "reef",
@@ -474,7 +542,8 @@ make_data_hash <- function(method, scale, domain) {
     mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale)) |> 
     filter(data_type == method,
            data_scale == scale
-           ) 
+           ) |>
+    mutate(data_type = original_method)
   if (!is.null(domain)) models <- models |> filter(domain_name %in% domain)
   models
 }
@@ -501,17 +570,33 @@ get_db_summary_table <- function(method, scale) {
 
 ## Make/update summary db tables (including extract data hash)
 update_db_summary_tables <- function(method, scale, domain = NULL) {
+  cat(paste0("update_db_summary_tables:", ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## cat(paste0("update_db_summary_tables:", "from:",
+  ##            sys.calls(),
+  ##            ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
   ## data_hashes <- make_data_hash(method = method, scale = scale, domain = domain) |>
   data_hashes <- make_data_hash(method = method, scale = scale, domain = NULL) |>
     dplyr::rename("extract_data_hash" = "model_data_hash",
                   "extract_data_path" = "path")
   tb <- get_db_summary_table(method = method, scale = scale)
+  ## tb1 <- tb
+  ## cat(paste0(colnames(data_hash), collapse = ","), file = "~/data/dashboard_run.log", append = TRUE)
+  ## cat(paste0("tb:",colnames(tb), collapse = ",", "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## cat(paste0("data_hashes:", colnames(data_hashes), collapse = ",", "\n"), file = "~/data/dashboard_run.log", append = TRUE)
+  ## jj <- data_hashes |> group_by(domain_name, data_type, data_scale) |> count() |> dplyr::filter(n > 1)
+  ## jj <- data_hashes |> filter(domain_name == "Snake Reef", data_type == "fish", data_scale == "reef")
+  ## jj <- data_hashes |> filter(domain_name == "Helix Reef", data_type == "fish", data_scale == "reef")
+  ## write_csv(jj, "~/data/jj.csv")
   if (!is.null(tb)) {
     if (nrow(tb) > 0) {
       tb <- tb |> 
         dplyr::select(-any_of(c("extract_data_hash", "extract_data_path",
-                                "data_type", "data_scale"))) |> 
-        left_join(data_hashes, by = c("domain_name" = "domain_name")) 
+                                "path", "model_data_hash"))) |>   ## added path to excludes
+        left_join(data_hashes, by = c("domain_name" = "domain_name", "data_type" = "data_type", "data_scale" = "data_scale"))
+        ## dplyr::select(-any_of(c("extract_data_hash", "extract_data_path",
+        ##                         "data_type", "data_scale", "path", "model_data_hash"))) |>   ## added path to excludes
+        ## left_join(data_hashes, by = c("domain_name" = "domain_name"))
+        ##                               ## "model_data_hash" = "model_data_hash")) 
     } else {
     tb <- data_hashes
     }
@@ -539,6 +624,14 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
   ## } else {
   ##   tb <- data_hashes
   ## }
+  ## cat(paste0("update_db_summary_tables, about to store to db:", 
+  ##            nrow(tb), ": ",
+  ##            nrow(tb1), " ",
+  ##            paste0(colnames(tb1), collapse = ","), " ",
+  ##            paste0(colnames(data_hashes), collapse = ","), " ",
+  ##            nrow(data_hashes), " ",
+  ##            db_sum_tbl, ": ",
+  ##            ": TIME:", date(), "\n"), file = "~/data/dashboard_run.log", append = TRUE)
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   copy_to(con, tb, db_sum_tbl, temporary = FALSE, overwrite = TRUE)
   ## compute(db_sum_tbl, temporary = FALSE, overwrite = TRUE, copy = TRUE)
@@ -605,12 +698,17 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
 
 update_db_model_hash <- function(method, scale, domain = NULL) {
   ## get model_data_hash for the current domain(s)
+
+  ## alert("Step 1") 
+  ## alert(method)
   data_hash <- make_data_hash(method = method, scale = scale, domain = domain) |>
     dplyr::rename(!!sym(paste0(scale, "_model_data_hash")) := "model_data_hash")
+  ## alert(data_hash)
   ## pp <- data_hash |> filter(data_type == "manta", data_scale == "reef", domain_name == "12068S") |> as.data.frame() |> head()
   ## print(pp)
   ## if models database table does not exist, make it
   
+  ## alert("Step 2") 
   if (!does_db_table_exist("models")) {
     models_db <- update_db_models()
   }
@@ -624,6 +722,17 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ##                            scale = scale,
   ##                            domain = domain)))
   ## alert(colnames(get_db_model_data()))
+  ## alert("Step 3") 
+  ## alert(get_db_model_data() |> filter(!(data_type == method &
+  ##          data_scale == scale &
+  ##          ## str_detect(domain_name, domain_str))) |> 
+  ##          domain_name %in% domain)) |>
+  ##       mutate(model_date = as.POSIXct(model_date)) |>
+  ##       colnames()
+  ##       )
+  ## alert(scan_models_folder(method = method,
+  ##                            scale = scale,
+  ##                            domain = domain) |> colnames())
   models_db <- get_db_model_data() |> 
     ## remove the focal domains
     filter(!(data_type == method &
@@ -633,12 +742,18 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
     mutate(model_date = as.POSIXct(model_date)) |> 
     rbind(scan_models_folder(method = method,
                              scale = scale,
-                             domain = domain))
+                             domain = domain) |>
+          dplyr::filter(selected_flag))
+  ## alert("Step 4") 
+  ## alert(colnames(models_db))
   ## )
   ## }
   ## get the summary table (to know what all models would be)
-  tb <- get_db_summary_table(method = method, scale = scale)
-
+  tb <- get_db_summary_table(method = method, scale = scale) |>
+    mutate(data_type = ifelse(data_type == "juvenile", "juveniles", data_type))
+  ## alert(colnames(tb))
+  ## alert(tb |> filter(data_type == "juveniles", data_scale == "reef", domain_name == "Centipede Reef"))
+  
   ## initially, the database table from which tb is extracted might be empty.
   ## when this is the case, the fields might be the wrong class.  So we will
   ## check to make sure they are the correct class before joining.
@@ -651,6 +766,7 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ## alert(class(tb$data_scale))
   ## alert(head(tb))
   ## Join tb to models_db to ensure that all possible models have a row
+  ## alert(models_db |> filter(data_scale == "reef", domain_name == "Centipede Reef"))
   models_db <- models_db |>
     full_join(tb |>
               select(data_type, data_scale, domain_name),
