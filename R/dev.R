@@ -1,10 +1,42 @@
 ## Fully through docker
 docker pull ghcr.io/open-aims/ltmp_dashboard:dev
-docker run --entrypoint R --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev Rscript /home/Project/R/00_main.R --path='/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip' --method=fish --domain='Pompey Reef No.1' --scale=reef
+
+## Run full process at terminal from the ~/dev directory
+## docker run --entrypoint R --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev Rscript /home/Project/R/00_main.R --path='/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip' --method=fish --domain='Pompey Reef No.1' --scale=reef
 
 #### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
-#### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev
 
+## Run process interactively
+docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev
+
+    ## system2("docker",
+    ##         args = c(
+    ##           "run",
+    ##           "-i",
+    ##           "--rm",
+    ##           "-v /etc/localtime:/etc/localtime",
+    ##           "-v /etc/timezone:/etc/timezone",
+    ##           "-v /home/mlogan/dev:/home/Project",
+    ##           "-v /home/mlogan/data:/data",
+    ##           "-w /home/Project/R",
+    ##           ## "ltmp-monitoring-model:latest",
+    ##           "ghcr.io/open-aims/ltmp_dashboard:dev",
+    ##           "Rscript",
+    ##           "/home/Project/R/00_main.R",
+    ##           ## shQuote(paste0("--path='/data/", data_type,
+    ##           shQuote(paste0("--path='/data/", "juvenile",
+    ##                          "/2021-01-14/process/ALL/2024/ALL",
+    ##                          "/reef/", rf,
+    ##                          "/raw/reef_data.zip'")),
+    ##           ## paste0("--method=", data_type),
+    ##           paste0("--method=", "juveniles"),
+    ##           shQuote(paste0("--domain=", rf)),
+    ##           "--scale=reef",
+    ##           "--status=true",
+    ##           "--refresh_data=false"
+    ##         ),
+    ##         stdout = out_log_file,
+    ##         wait = TRUE)
 setwd("/home/Project/R")
 system("cp -r /data/spatial ../data/spatial")
 
@@ -34,6 +66,7 @@ args = c(
   "--status=true",                                  ##whether to show full status 
   "--refresh_data=false"                            ##whether to refresh all the data 
 )
+
 args = c(
   "R",
   "Rscript",
@@ -42,7 +75,44 @@ args = c(
   "--method=fish",
   "--domain=Helix Reef",
   "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Opal Reef/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Opal Reef",
+  "--scale=reef",
   "--display_log=false",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Snake Reef/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Snake Reef",
+  "--scale=reef",
+  "--display_log=true",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/John Brewer Reef/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=John Brewer Reef",
+  "--scale=reef",
+  "--display_log=true",
   "--status=true",                                  ##whether to show full status 
   "--refresh_data=false"                            ##whether to refresh all the data 
 )
@@ -232,6 +302,17 @@ args = c(
 ## )
 
 ## Manta ---------------
+args = c(
+  "R",
+  "Rscript",
+  "--file=manta_cover.R",                            ##the name of the target script
+  "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/Agincourt Reef No.1/raw/reef_data.zip",
+  "--method=manta",
+  "--domain=Agincourt Reef No.1",
+  "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
 ## args = c(
 ##   "R",
 ##   "Rscript",
@@ -261,6 +342,17 @@ args = c(
 ##   "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/Briggs Reef/raw/reef_data.zip",
 ##   "--method=manta",
 ##   "--domain=Briggs Reef",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status 
+##   "--refresh_data=false"                            ##whether to refresh all the data 
+## )
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=manta_cover.R",                            ##the name of the target script
+##   "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/Charity Reef/raw/reef_data.zip",
+##   "--method=manta",
+##   "--domain=Charity Reef",
 ##   "--scale=reef",
 ##   "--status=true",                                  ##whether to show full status 
 ##   "--refresh_data=false"                            ##whether to refresh all the data 
@@ -312,6 +404,39 @@ args = c(
 ## )
 
 ## Juvenile ------------
+args = c(
+  "R",
+  "Rscript",
+  "--file=juv_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/ALL/reef/Snapper Island/raw/reef_data.zip",
+  "--method=juvenile",
+  "--domain=Snapper Island",
+  "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+args = c(
+  "R",
+  "Rscript",
+  "--file=juv_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/ALL/reef/Hayman Island/raw/reef_data.zip",
+  "--method=juvenile",
+  "--domain=Hayman Island",
+  "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+args = c(
+  "R",
+  "Rscript",
+  "--file=juv_cover.R",                            ##the name of the target script
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/Mackay Whitsunday/nrm/Mackay Whitsunday/raw/reef_data.zip",
+  "--method=juvenile",
+  "--domain=Mackay Whitsunday",
+  "--scale=nrm",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
 ## args = c(
 ##   "R",
 ##   "Rscript",
@@ -326,7 +451,7 @@ args = c(
 ## args = c(
 ##   "R",
 ##   "Rscript",
-##   "--file=pt_cover.R",                            ##the name of the target script
+##   "--file=juv_cover.R",                            ##the name of the target script
 ##   "--path=/juvenile/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip",
 ##   "--method=juvenile",
 ##   "--domain=Wet Tropics",
@@ -337,6 +462,29 @@ args = c(
 
 ## fish
 
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Lady Musgrave Island/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Lady Musgrave Island",
+  "--scale=reef",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Wet Tropics",
+  "--scale=nrm",
+  "--status=true",                                  ##whether to show full status 
+  "--refresh_data=false"                            ##whether to refresh all the data 
+)
 ## args = c(
 ##   "R",
 ##   "Rscript",
