@@ -1,3 +1,4 @@
+
 ## setwd("~/dev/R")
 library(DBI)
 library(RSQLite)
@@ -9,6 +10,16 @@ library(digest)
 print(Sys.info()[["user"]])
 message(Sys.info()[["user"]])
 
+## run_location <- "HPC" #"local"
+
+## args <- c(
+##   "Rscript",
+##   "batch.R",
+##   "--purpose=sql",
+##   "--method=juveniles",
+##   "--scale=reef",
+##   "--log=../../data/dashboard.log"
+##   )
 ## args <- c(
 ##   "Rscript",
 ##   "batch.R",
@@ -32,6 +43,33 @@ message(Sys.info()[["user"]])
 ##   "--method=manta",
 ##   "--scale=reef",
 ##   "--domain='Reef 14-133'",
+##   "--log=../../data/dashboard.log"
+##   )
+## args <- c(
+##   "Rscript",
+##   "batch.R",
+##   "--purpose=sql, post-process, prepare, fit",
+##   "--method=manta",
+##   "--scale=reef",
+##   "--domain='Reef 14-133'",
+##   "--log=../../data/dashboard.log"
+##   )
+## args <- c(
+##   "Rscript",
+##   "batch.R",
+##   "--purpose=fit",
+##   "--method=fish",
+##   "--scale=reef",
+##   "--domain='John Brewer Reef'",
+##   "--log=../../data/dashboard.log"
+##   )
+## args <- c(
+##   "Rscript",
+##   "batch.R",
+##   "--purpose=prepare, fit",
+##   "--method=photo-transect",
+##   "--scale=reef",
+##   "--domain='Arlington Reef'",
 ##   "--log=../../data/dashboard.log"
 ##   )
 
@@ -198,6 +236,61 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
              ) |>
       rename(REEFPAGE_CATEGORY = REEF_PAGE_CATEGORY) |> 
       left_join(avail_substrate_site)
+
+    ## Unfortunately, this means that if a trip did not count any juveniles
+    ## at a site, then it will appear as if the site was not surveyed.
+    ## To remedy this, we need to:
+    ## - extract data from the v_rm_samples table
+    ## - filter and prepare these data to match the format of the juvenile data
+    ## - pivot the juvenile data wider according to the REEFPAGE_CATEGORY
+    ## - right join this to the v_rm_samples extract to add the missing cases
+    ## - pivot longer to restore the format
+    ## - replace the resulting NA with 0's
+
+    sql_file3 <- paste0(sql_file,"_3")
+    data_type3 <- paste0(data_type, "_3")
+    system2("java",
+            args = c("-jar",
+                     "../dbExport.jar",
+                     shQuote(paste0("../../dashboard/data/", sql_file3, ".sql")),
+                     shQuote(paste0("../../data/", data_type3, ".csv")),
+                     "reef",
+                     "reefmon",
+                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+            wait = TRUE,
+            stderr = sub("dashboard", "dashboard_error", config_$dashboard_log)
+            )
+    rm_samples <- read_csv(paste0("../../data/", data_type3, ".csv"))  |> 
+      filter(P_CODE %in% c("IN", "RM", "RAP", "RMRAP")) |> 
+      filter(!is.na(SITE_NO), SITE_NO >= 1) |> 
+      filter(!is.na(VISIT_NO)) |>
+      droplevels() |> 
+      mutate(SITE_DEPTH = ifelse(P_CODE == 'IN', SITE_DEPTH, 9)) |> 
+      mutate(SITE_DEPTH = as.numeric(SITE_DEPTH)) |>
+      dplyr::select(P_CODE, REEF_NAME, AIMS_REEF_NAME, REEF_ZONE,
+                    CRUISE_CODE, A_SECTOR, SHELF, NRM_REGION,
+                    SITE_DEPTH, SITE_NO, VISIT_NO, REPORT_YEAR) |>
+      distinct()
+    taxa <- juv_data |> pull(REEFPAGE_CATEGORY) |> unique()
+    juv_data <- 
+      juv_data |>
+      pivot_wider(
+        names_from = REEFPAGE_CATEGORY,
+        values_from = ABUNDANCE,
+        values_fill = 0) |>
+      right_join(rm_samples,
+                 by = join_by(P_CODE, CRUISE_CODE, REEF_NAME,
+                              AIMS_REEF_NAME, REEF_ZONE,
+                              A_SECTOR, NRM_REGION, SHELF,
+                              SITE_NO, SITE_DEPTH, REPORT_YEAR,
+                              VISIT_NO)
+                 ) |> 
+      pivot_longer(cols = any_of(taxa),
+                   names_to = "REEFPAGE_CATEGORY",
+                   values_to = "ABUNDANCE"
+                   ) |>
+      mutate(ABUNDANCE = replace_na(ABUNDANCE, replace = 0))
+
     write_csv(juv_data, file = paste0("../../data/", data_type, ".csv"))
   } else {
     system2("java",
@@ -221,12 +314,16 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
   }
   print("Extraction complete")
   print("Update databases")
+  ## alert("Update databases")
+  ## system2("touch", "~/data/AAAAAAAAAAAAAAAAA.log")
   create_db_table_from_extract(config_$db_path,
                                data_type = data_type,
                                paste0("../../data/", data_type, ".csv"))
+  ## system2("touch", "~/data/AAAAAAAAAAAAAAAAA1.log")
   create_db_summary_from_extract(config_$db_path,
                                  data_type = data_type,
                                  paste0("../../data/", data_type, ".csv"))
+  ## system2("touch", "~/data/AAAAAAAAAAAAAAAAA2.log")
   print("Update databases complete")
   if (data_type == "fish") {
     system2("java",
@@ -275,6 +372,7 @@ if ("fit" %in% purpose) {  ## Fit models
   ## domains <- which_models_to_update(method = data_type, scale = data_scale, all = TRUE) |>
   ##   str_subset("^NA$", negate = TRUE)
   print(domain)
+  message(paste0("log file: ", config_$dashboard_log))
   if (!all(is.null(domain) | domain == "NULL")) {
     domains <- domain
   } else {
@@ -289,16 +387,28 @@ if ("fit" %in% purpose) {  ## Fit models
   ## print(paste0("Fit models for ", domains, " data scale is: ", data_scale))
   message(paste0("Fit models for ", domains, " data scale: ", data_scale, " data_type: ", data_type ))
   if(length(domains)>0) {
-    process <- processx::process$new("Rscript", 
-                                     args = c("run_models.R",
-                                              paste0("--method=", data_type),
-                                              paste0("--scale=", data_scale),
-                                              paste0("--domain=", domains),
-                                              paste0("--log=", config_$dashboard_log)),
-                                     stdout = config_$dashboard_log
-                                     ## stderr =  config_$dashboard_log
-                                     )
-    ## process$is_alive()
+    ## if (run_location == "local") {
+      process <- processx::process$new("Rscript", 
+                                       args = c("run_models.R",
+                                                paste0("--method=", data_type),
+                                                paste0("--scale=", data_scale),
+                                                paste0("--domain=", domains),
+                                                paste0("--log=", config_$dashboard_log)),
+                                       stdout = config_$dashboard_log
+                                       ## stderr =  config_$dashboard_log
+                                       )
+      ## process$is_alive()
+    ## } else { # run_location == "HPC"
+    ##   process <- processx::process$new("Rscript", 
+    ##                                    args = c("test_hpc.R",
+    ##                                             paste0("--method=", data_type),
+    ##                                             paste0("--scale=", data_scale),
+    ##                                             paste0("--domain=", domains),
+    ##                                             paste0("--log=", config_$dashboard_log)),
+    ##                                    stdout = config_$dashboard_log
+    ##                                    ## stderr =  config_$dashboard_log
+    ##                                    )
+    ## }
     process$wait()
     message(process$get_exit_status())
     message(process$get_error_file())
