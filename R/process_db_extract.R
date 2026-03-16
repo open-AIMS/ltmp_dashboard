@@ -59,6 +59,12 @@ if (data_type == "photo-transect" & purpose == "post-process") {
            LATITUDE = round(LATITUDE, 6),
            LONGITUDE = round(LONGITUDE, 6),
            SITE_DEPTH = ifelse(P_CODE == 'MMP', SITE_DEPTH, 9))
+  ## ## Temporary change for the paper (Dec 2025)
+  ## pt <- pt |>
+  ##   mutate(REEFPAGE_CATEGORY = ifelse(REEFPAGE_CATEGORY == "Acropora",
+  ##                                     COMP_2021, REEFPAGE_CATEGORY))
+                                      
+  ############################################
   cat("Save processed data\n")
   rds_file <- gsub(".csv", ".rds", csv_file)
   print(rds_file)
