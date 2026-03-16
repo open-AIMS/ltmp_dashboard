@@ -17,12 +17,12 @@ ltmp_nested_table <- function(data, model_lookup) {
   status::status_try_catch(
   {
     data <- data |>
-      group_by(VARIABLE) |>
+      group_by(VARIABLE, sub_model) |>
       nest() |>
       full_join(model_lookup |>
-                dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model),
+                dplyr::select(VARIABLE, model_type, family_type, model_response),
                 by = "VARIABLE") |>
-      dplyr::select(VARIABLE, model_type, family_type, model_response, sub_model, everything())
+      dplyr::select(VARIABLE, model_type, family_type, model_response, everything())
   },
   stage_ = 4,
   order_ = 1,
@@ -377,8 +377,8 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
                                                                   mean(DATE, na.rm = TRUE),
                                                                   as.Date(paste0(unique(fYEAR), '-01-01')))) |>
                                          dplyr::select(fYEAR, DATE) |>
-                                         distinct()
-                                         ## by = "fYEAR"
+                                         distinct(),
+                                         by = "fYEAR"
                                          )
                              newdata
                            }
@@ -404,18 +404,20 @@ ltmp_raw_data_summaries_pt <- function(dat) {
                                mutate(cover = COUNT/TOTAL) |> 
                                group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
                                summarise(cover = sum(cover),
-                                         TOTAL = sum(TOTAL)) |>
+                                         TOTAL = sum(TOTAL),
+                                         .groups = "keep") |>
                                ungroup() |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(cover),
                                          Median = median(cover),
-                                         Total.count = sum(TOTAL)) |>
+                                         Total.count = sum(TOTAL),
+                                         .groups = "keep") |>
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
                                          Median = median(Median),
-                                         Total.count = sum(Total.count)
-                                         ) |>
+                                         Total.count = sum(Total.count),
+                                         .groups = "keep") |>
                                as.data.frame()
                            }
                            ))
@@ -541,10 +543,12 @@ ltmp__fit_inla_pt <- function(dat, newdata, form, label, type = "binomial") {
 ltmp_get_model_posteriors <- function(dat) {
   status::status_try_catch(
   {
-  dat <- dat |>
-    mutate(posteriors = map2(.x = data_group, .y = model,
-                             .f = ~ get_model_posteriors(.y, .x)
-                             ))
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
+    dat <- dat |>
+      mutate(posteriors = future_map2(.x = data_group, .y = model,
+                                      .f = ~ get_model_posteriors(.y, .x)
+                                      ))
     dat
   },
   stage_ = 4,
@@ -568,7 +572,7 @@ get_model_posteriors <- function(mod_str, data.group) {
   if ("COUNT" %in% names(data.group)) {  ## Photo-transect only
   replace_0 <- data.group %>%
     group_by(fYEAR, fGROUP, .drop = FALSE) %>%
-    summarise(Sum = sum(COUNT))
+    summarise(Sum = sum(COUNT), .groups = "keep")
   } else {  # Juveniles have a different way of dealing with this
     replace_0 <- tribble(~fYEAR, ~fGROUP, ~Sum)
   }
@@ -586,8 +590,8 @@ get_model_posteriors <- function(mod_str, data.group) {
   saveRDS(year_group_posteriors, file = year_group_posteriors_label)
   write_csv(year_group_posteriors |> dplyr::select(-fYEAR),
             file = gsub(".rds", ".csv", year_group_posteriors_label))
-  write_aws(filenm = basename(gsub(".rds$", ".csv", year_group_posteriors_label)),
-            catalog_file = TRUE)
+  ## write_aws(filenm = basename(gsub(".rds$", ".csv", year_group_posteriors_label)),
+  ##           catalog_file = TRUE)
 
   year_group_sum <- year_group_posteriors |>
     group_by(fYEAR, fGROUP, REPORT_YEAR, DATE) %>%
@@ -601,9 +605,9 @@ get_model_posteriors <- function(mod_str, data.group) {
   saveRDS(year_posteriors, file = year_posteriors_label)
   write_csv(year_posteriors |> dplyr::select(-fYEAR),
             file = gsub(".rds$", ".csv", gsub("_year_", "_annual_", year_posteriors_label)))
-  write_aws(filenm = basename(gsub(".rds$", ".csv",
-                                   gsub("_year_", "_annual_", year_posteriors_label))),
-            catalog_file = TRUE)
+  ## write_aws(filenm = basename(gsub(".rds$", ".csv",
+  ##                                  gsub("_year_", "_annual_", year_posteriors_label))),
+  ##           catalog_file = TRUE)
 
   year_sum <- year_posteriors %>%
     group_by(fYEAR, REPORT_YEAR, DATE) %>%
@@ -686,7 +690,8 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
     dplyr::select(fYEAR, fGROUP, REPORT_YEAR, DATE) |>
     ## cbind(plogis(cellmeans)) %>%
     cbind(inv_link(cellmeans)) %>%
-    rename_with(function(x) x <- 1, matches("plogis")) %>%
+    ## rename_with(function(x) x <- "1", matches("plogis")) %>%
+    rename_with(~sub("plogis", "1", .x), matches("plogis")) %>% 
     pivot_longer(cols = matches("[0-9]"), names_to = ".draw")
   if (nrow(replace_0) > 0) {
     newdata <- newdata |>
@@ -697,7 +702,7 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
   newdata <- newdata |>
     droplevels() %>%
     group_by(fYEAR, fGROUP, REPORT_YEAR, DATE, .draw) %>%
-    summarise(value = sum(value)) %>%
+    summarise(value = sum(value), .groups = "keep") %>%
     ungroup() |>
     ## if there are still NAs, replace with 0.  these NA values are for fGROUPs
     ## that are not present in the data in that year
@@ -718,7 +723,7 @@ get_year_posteriors <- function(newdata, cellmeans, replace_0, inv_link) {
   }
   newdata <- newdata |>
     group_by(fYEAR,REPORT_YEAR, DATE, .draw) %>%
-    summarise(value = sum(value, na.rm = TRUE)) %>%
+    summarise(value = sum(value, na.rm = TRUE), .groups = "keep") %>%
     ungroup()
   newdata 
 }
@@ -744,6 +749,7 @@ get_yearcomp_posteriors <- function(newdata, year_posteriors) {
         value = as.vector(as.vector(value) %*%
                           t(cbind(1, -1 * model.matrix(~fYEAR)[-1, -1]))),
         YearComp = paste0(first(fYEAR), "-", fYEAR[-1]),
+        .groups = "keep"
         ) |>
       dplyr::select(YearComp, .draw, value, frac) 
   }
@@ -765,7 +771,8 @@ get_all_yearcomp_posteriors <- function(newdata, year_posteriors) {
       summarise(
         frac = exp(as.vector(as.vector(log(value)) %*% as.matrix(xmat))),
         value = as.vector(as.vector(value) %*% as.matrix(xmat)),
-        YearComp = names(xmat)
+        YearComp = names(xmat),
+        .groups = "keep"
         ) |>
       dplyr::select(YearComp, .draw, value, frac) 
   }
@@ -787,13 +794,15 @@ mean_median_hdci <- function(.data, ...) {
 ltmp_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     dat_compare <-
       dat |>
       left_join(model_lookup |>
                 dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
                 by = c("VARIABLE", "model_type", "family_type")) |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = family_type,
+               future_map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_sum |>
@@ -806,17 +815,25 @@ ltmp_compare_models <- function(dat, model_lookup) {
       ##       else .x
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
-      dplyr::select(VARIABLE, splits, label, raw_sum, compare_models, ylab, scale) |>
+      dplyr::select(VARIABLE, sub_model, splits, label, raw_sum, compare_models, ylab, scale, selected) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, raw_sum, ylab, scale) |>
+      ## group_by(VARIABLE, sub_model, splits, label, raw_sum, ylab, scale) |>
+      ## group_by(VARIABLE, sub_model, splits, ylab, scale) |>
+      group_by(VARIABLE, sub_model, splits, ylab) |> 
       nest() |>
-      mutate(gg = pmap(.l = list(data, raw_sum, label, ylab, scale),
+      ## mutate(gg = future_pmap(.l = list(data, raw_sum, label, ylab, scale),
+      mutate(gg = future_pmap(.l = list(data, ylab),
                        .f =  ~ {
                          data <- ..1
-                         raw_sum <- ..2
-                         lab <- ..3
-                         ylab <- ..4
-                         yscale <- ..5
+                         raw_sum <- data$raw_sum[[1]] #unique(data$raw_sum) #..2
+                         lab <- unique(data$label)
+                         ylab <- ..2 #..4
+                         yscale <- unique(data$scale)[[1]] #..5
+
+                         data <- data |>
+                           mutate(family_type = ifelse(selected,
+                                                       paste0("*", family_type, "*"),
+                                                       family_type))
                          ## lookup <- tribble(~data_type, ~VARIABLE, ~sub_variable, ~ylab, ~scale,
                          ##                   "photo-transect", NA, NA, "Percent cover", scales::label_percent(),
                          ##                   "manta", NA, NA, "Percent cover", scales::label_percent(),
@@ -843,7 +860,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
                            geom_line(data = raw_sum,
                                      aes(y = Median, x = as.numeric(as.character(fYEAR)),
                                          colour = "Raw median")) +
-                           facet_grid(~family_type) +
+                           facet_wrap(~family_type, scales = "free_y") +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                                ## scale_y_continuous(ylab, label = scales::label_percent())
@@ -869,6 +886,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
 ltmp_group_compare_models <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    plan(multicore, workers = parallelly::availableCores() - 1)
     if (status::get_setting(element = "data_scale") == "reef") {
     dat_group_compare <-
       dat |>
@@ -878,7 +896,7 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
       dplyr::filter(model_type != "Biomass") |>
       droplevels() |> 
       mutate(compare_models =
-               map2(.x = posteriors, .y = family_type,
+               future_map2(.x = posteriors, .y = family_type,
                     .f = ~ {
                       if (is.null(.x)) return(NULL)
                       .x$year_group_sum |>
@@ -891,11 +909,12 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
       ##       else .x
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
-      dplyr::select(VARIABLE, splits, label, data_group, compare_models, ylab, scale) |>
+      dplyr::filter(selected) |> 
+      dplyr::select(VARIABLE, sub_model, splits, label, data_group, compare_models, ylab, scale) |>
       unnest(c(compare_models)) |> 
-      group_by(VARIABLE, splits, label, data_group, ylab, scale) |>
+      group_by(VARIABLE, sub_model, splits, label, data_group, ylab, scale) |>
       nest() |>
-      mutate(gg = pmap(.l = list(data, data_group, label, ylab, scale),
+      mutate(gg = future_pmap(.l = list(data, data_group, label, ylab, scale),
                        .f =  ~ {
                          data <- ..1
                          data_group <- ..2
@@ -925,14 +944,16 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
                          ##   pull(fGROUP)
                          gg <-
                            data |>
-                           mutate(fGROUP = forcats::fct_reorder(fGROUP, median)) |> 
+                           mutate(fGROUP = forcats::fct_reorder(fGROUP, median, .desc = FALSE)) |> 
                            ggplot(aes(x = REPORT_YEAR, y = median)) +
                            geom_bar(aes(fill = fGROUP), stat = "Identity", position = "stack") +
                            facet_grid(~family_type) +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
                            ## scale_y_continuous("Cover", label = scales::label_percent()) +
-                           scale_fill_discrete("", labels = function(x) rev(x)) +
+                           scale_fill_discrete("",
+                                               ## labels = function(x) rev(x)) +
+                                               ) +
                            theme_bw() +
                            theme(axis.title.x = element_blank(),
                                  strip.background = element_rect(fill = "lightblue")
@@ -959,6 +980,9 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
 ltmp_raw_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     raw_plots <-
       dat  |>
       left_join(model_lookup |>
@@ -971,80 +995,107 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
       ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
       mutate(gg =
-               pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
-                    .f = ~ {
-                      data_group <- ..1
-                      raw_sum <- ..2
-                      lab <- ..3
-                         ylab <- ..4
-                         yscale <- ..5
-                      resp <- ..6
-                      ## lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
-                      ##                   "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
-                      ##                   "manta", "Cover", NA, "Percent cover", scales::label_percent(),
-                      ##                   "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
-                      ##                   "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
-                      ##                   "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
-                      ##                   )
-                      ## st <- strsplit(lab, "_")[[1]]
-                      ## lookup <- lookup |> filter(data_type == st[[1]])
-                      ## if (length(st) == 9) 
-                      ##   lookup <- lookup |> filter(sub_variable == st[[9]])
-                      ## ylab <- lookup$ylab
-                      ## yscale <- lookup$scale[[1]]
-                      ## resp <- lookup$resp[[1]]
-                      if (status::get_setting(element = "data_method") %in%
-                          c("photo-transect", "juvenile", "fish")) {
-                        if (resp == "COUNT") {
-                          dg <- 
-                            data_group |> 
-                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                            summarise(value = sum(PERC_COVER)) |>
-                            ungroup() 
-                        } else if (resp == "ABUNDANCE") {
-                          dg <- 
-                            data_group |> 
-                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                            summarise(value = sum(ABUNDANCE)) |>
-                            ungroup() 
-                        } else if (resp == "Biomass") {
-                          dg <- 
-                            data_group |> 
-                            group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
-                            summarise(value = sum(Biomass)) |>
-                            ungroup() 
-                        }
+               future_pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
+                           .f = ~ {
+                             data_group <- ..1
+                             raw_sum <- ..2
+                             lab <- ..3
+                             ylab <- ..4
+                             yscale <- ..5
+                             resp <- ..6
+                             ## lookup <- tribble(~data_type, ~resp, ~sub_variable, ~ylab, ~scale,
+                             ##                   "photo-transect", "PERC_COVER", NA, "Percent cover", scales::label_percent(),
+                             ##                   "manta", "Cover", NA, "Percent cover", scales::label_percent(),
+                             ##                   "juvenile", "PERC_COVER", NA, "Juveniles per m²", scales::label_percent(),
+                             ##                   "fish", "ABUNDANCE", "ABUNDANCE", "Fish density per 250m²", scales::label_number(),
+                             ##                   "fish", "Biomass", "Biomass", "Fish biomass per 1000m²", scales::label_number(scale = 4)
+                             ##                   )
+                             ## st <- strsplit(lab, "_")[[1]]
+                             ## lookup <- lookup |> filter(data_type == st[[1]])
+                             ## if (length(st) == 9) 
+                             ##   lookup <- lookup |> filter(sub_variable == st[[9]])
+                             ## ylab <- lookup$ylab
+                             ## yscale <- lookup$scale[[1]]
+                             ## resp <- lookup$resp[[1]]
+                             data_method <- status::get_setting(element = "data_method")
+                             if (status::get_setting(element = "data_method") %in%
+                                 c("photo-transect", "juveniles", "fish")) {
+                               if (resp == "COUNT") {
+                                 dg <- 
+                                   data_group |> 
+                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   summarise(value = sum(PERC_COVER), .groups = "keep") |>
+                                   ungroup() 
+                               } else if (resp == "ABUNDANCE" & data_method == "fish") {
+                                 dg <- 
+                                   data_group |> 
+                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   summarise(value = sum(ABUNDANCE), .groups = "keep") |>
+                                   ungroup() 
+                               } else if (resp == "ABUNDANCE" & data_method == "juveniles") {
+                                 dg <- 
+                                   data_group |> 
+                                   group_by(REPORT_YEAR, REEF, fDEPTH, SITE_NO) |>
+                                   summarise(value = sum(ABUNDANCE / AVAILABLE_SUBSTRATE),
+                                            .groups = "keep" ) |>
+                                   ungroup() 
+                               } else if (resp == "Biomass") {
+                                 dg <- 
+                                   data_group |> 
+                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   summarise(value = sum(Biomass), .groups = "keep") |>
+                                   ungroup() 
+                               }
 
-                      } else {  ## manta
-                        dg <- 
-                          data_group |> 
-                          group_by(REPORT_YEAR, REEF, fDEPTH) |>
-                          summarise(value = mean(Cover)) |>
-                          mutate(TRANSECT_NO = NA) |> 
-                          ungroup()
-                      }
-                      gg <- 
-                        dg |> 
-                        ggplot(aes(x = REPORT_YEAR, y = value)) +
-                        geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
-                                  show.legend = FALSE) +
-                        geom_line(data = raw_sum,
-                                  aes(y = Mean,
-                                      x = as.numeric(as.character(fYEAR)))) +
-                        geom_line(data = raw_sum,
-                                  aes(y = Median,
-                                      x = as.numeric(as.character(fYEAR))),
-                                  linetype = "dashed") +
-                        scale_y_continuous(ylab, label = yscale) +
-                        scale_x_continuous("") +
-                        facet_wrap(~REEF) +
-                        theme_bw()
-                      filenm <- paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".png")
-                      saveRDS(gg, file = paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".rds"))
-                      ggsave(filename = filenm, plot = gg, width = 12, height = 7)
-                      filenm
-                    }
-                    ))
+                             } else {  ## manta
+                               dg <- 
+                                 data_group |> 
+                                 group_by(REPORT_YEAR, REEF, fDEPTH) |>
+                                 summarise(value = mean(Cover), .groups = "keep") |>
+                                 mutate(TRANSECT_NO = NA) |> 
+                                 ungroup()
+                             }
+                             if (data_method == "juveniles") {
+                               gg <- 
+                                 dg |> 
+                                 ggplot(aes(x = REPORT_YEAR, y = value)) +
+                                 geom_line(aes(color = paste0(fDEPTH, SITE_NO)),
+                                           show.legend = FALSE) +
+                                 geom_line(data = raw_sum,
+                                           aes(y = Mean,
+                                               x = as.numeric(as.character(fYEAR)))) +
+                                 geom_line(data = raw_sum,
+                                           aes(y = Median,
+                                               x = as.numeric(as.character(fYEAR))),
+                                           linetype = "dashed") +
+                                 scale_y_continuous(ylab, label = yscale) +
+                                 scale_x_continuous("") +
+                                 facet_wrap(~REEF) +
+                                 theme_bw()
+                             } else {
+                               gg <- 
+                                 dg |> 
+                                 ggplot(aes(x = REPORT_YEAR, y = value)) +
+                                 geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
+                                           show.legend = FALSE) +
+                                 geom_line(data = raw_sum,
+                                           aes(y = Mean,
+                                               x = as.numeric(as.character(fYEAR)))) +
+                                 geom_line(data = raw_sum,
+                                           aes(y = Median,
+                                               x = as.numeric(as.character(fYEAR))),
+                                           linetype = "dashed") +
+                                 scale_y_continuous(ylab, label = yscale) +
+                                 scale_x_continuous("") +
+                                 facet_wrap(~REEF) +
+                                 theme_bw()
+                             }
+                             filenm <- paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".png")
+                             saveRDS(gg, file = paste0(FIGURES_PATH, "", "gg_raw_sum_", lab, ".rds"))
+                             ggsave(filename = filenm, plot = gg, width = 12, height = 7)
+                             filenm
+                           }
+                           ))
     raw_plots
   },
   stage_ = 4,
@@ -1060,6 +1111,9 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
 ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
   status::status_try_catch(
   {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    ## future:set.seed(TRUE)
     if (status::get_setting(element = "data_scale") == "reef" &
         status::get_setting(element = "data_method") != "manta") {
       raw_group_plots <-
@@ -1074,7 +1128,7 @@ ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
         ## )() |> 
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |> 
         mutate(gg =
-                 pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
+                 future_pmap(.l = list(data_group, raw_sum, label, ylab, scale, model_response),
                       .f = ~ {
                         data_group <- ..1
                         raw_sum <- ..2
@@ -1100,35 +1154,56 @@ ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
 
                         ## if (status::get_setting(element = "data_method") %in%
                         ##     c("photo-transect", "juvenile", "fish")) {
+                        data_method <- status::get_setting(element = "data_method")
                         if (status::get_setting(element = "data_method") %in%
-                            c("photo-transect", "juvenile", "fish")) {
+                            c("photo-transect", "juveniles", "fish")) {
                           if (resp == "COUNT") {
                             dg <- data_group |> mutate(value = PERC_COVER)
-                          } else if (resp == "ABUNDANCE") {
+                          } else if (data_method != "juveniles" & resp == "ABUNDANCE") {
                             dg <- data_group |> mutate(value = ABUNDANCE)
+                          } else if (data_method == "juveniles" & resp == "ABUNDANCE") {
+                            dg <- data_group |> mutate(value = ABUNDANCE / AVAILABLE_SUBSTRATE)
                           } else if (resp == "Biomass") {
                             dg <- data_group |> mutate(value = Biomass)
                           }
                         } else {  ## manta
                           dg <- data_group |> mutate(value = Cover)
                         }
-                        gg <- 
-                          dg |> 
-                          ggplot(aes(x = REPORT_YEAR, y = value)) +
-                          geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
-                                    show.legend = FALSE) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Mean,
-                                        x = as.numeric(as.character(fYEAR)))) +
-                          geom_line(data = raw_sum,
-                                    aes(y = Median,
-                                        x = as.numeric(as.character(fYEAR))),
-                                    linetype = "dashed") +
-                          scale_y_continuous(ylab, label = yscale) +
-                          scale_x_continuous("") +
-                          facet_wrap(~fGROUP) +
-                          theme_bw()
-                        ## }
+                        if (data_method == "juveniles") {
+                          gg <- 
+                            dg |> 
+                            ggplot(aes(x = REPORT_YEAR, y = value)) +
+                            geom_line(aes(color = paste0(fDEPTH, SITE_NO)),
+                                      show.legend = FALSE) +
+                            geom_line(data = raw_sum,
+                                      aes(y = Mean,
+                                          x = as.numeric(as.character(fYEAR)))) +
+                            geom_line(data = raw_sum,
+                                      aes(y = Median,
+                                          x = as.numeric(as.character(fYEAR))),
+                                      linetype = "dashed") +
+                            scale_y_continuous(ylab, label = yscale) +
+                            scale_x_continuous("") +
+                            facet_wrap(~fGROUP) +
+                            theme_bw()
+                        } else {
+                          gg <- 
+                            dg |> 
+                            ggplot(aes(x = REPORT_YEAR, y = value)) +
+                            geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
+                                      show.legend = FALSE) +
+                            geom_line(data = raw_sum,
+                                      aes(y = Mean,
+                                          x = as.numeric(as.character(fYEAR)))) +
+                            geom_line(data = raw_sum,
+                                      aes(y = Median,
+                                          x = as.numeric(as.character(fYEAR))),
+                                      linetype = "dashed") +
+                            scale_y_continuous(ylab, label = yscale) +
+                            scale_x_continuous("") +
+                            facet_wrap(~fGROUP) +
+                            theme_bw()
+                        }
                         filenm <- paste0(FIGURES_PATH, "", "gg_raw_group_sum_", lab, ".png")
                         saveRDS(gg, file = paste0(FIGURES_PATH, "", "gg_raw_group_sum_", lab, ".rds"))
                         ggsave(filename = filenm, plot = gg, width = 12, height = 7)
@@ -1167,12 +1242,13 @@ ltmp_choose_model <- function(dat) {
                          ## mutate(Mean = ifelse(model_type == "Biomass", Mean_biomass, Mean))
                          raw |>
                            full_join(posts, by = "fYEAR") |>
-                           summarise(SS = sum((Mean-median)^2, na.rm = TRUE))
+                           summarise(SS = sum((Mean-median)^2, na.rm = TRUE),
+                                     SS2 = sum((Mean-mean)^2, na.rm = TRUE))
                        }
                        )) |>
       unnest(SS) |>
       group_by(splits, .add = TRUE) |> 
-      mutate(selected = is_first_min(SS)) |> 
+      mutate(selected = is_first_min(SS2)) |>   ## go with the mean as it will be sensitive to waky upper CI's
       ungroup(model_type, splits)
     comp
   },
@@ -1182,6 +1258,49 @@ ltmp_choose_model <- function(dat) {
   item_ = "select_model"
   )
   return(comp)
+}
+
+ltmp_delete_non_selected_models <- function(data) {
+  status::status_try_catch(
+  {
+    file_str <- data |>
+      ungroup() |> 
+      dplyr::filter(!selected) |>
+      dplyr::select(label) |>
+      unnest(label) |>
+      pull(label)
+    ## Delete any unselected models and thier derivatives
+    if (length(file_str) > 0) {
+      file_str <- paste(paste0(file_str, ".*"), collapse =  "|")
+      files <- list.files(
+        path = paste0(
+          status::get_setting("data_path"),
+          "modelled/"
+        ),
+        pattern = file_str,
+        )
+      file.remove(
+        paste0(
+          status::get_setting("data_path"),
+          "modelled/", files
+        )
+      )
+    }
+    ## ## Delete the selected model (not derivatives) as well
+    files <- data |>
+      ungroup() |>
+      filter(selected) |>
+      dplyr::select(model) |>
+      unnest(model) |>
+      pull(model)
+    file.remove(files)
+  },
+  stage_ = 4,
+  order_ = 22,
+  name_ = "Delete excess models",
+  item_ = "delete_models"
+  )
+  return(invisible(NULL))
 }
 
 ## Juvenile specific functions
@@ -1225,15 +1344,17 @@ ltmp_raw_data_summaries_juv <- function(dat) {
                              data_group |> 
                                mutate(cover = ABUNDANCE / AVAILABLE_SUBSTRATE) |> 
                                group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, fYEAR) |>
-                               summarise(cover = sum(cover)) |> 
+                               summarise(cover = sum(cover), .groups = "keep") |> 
                                ungroup() |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(cover),
-                                         Median = median(cover)) |> 
+                                         Median = median(cover),
+                                         .groups = "keep") |> 
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
-                                         Median = median(Median)) |> 
+                                         Median = median(Median),
+                                         .groups = "keep") |> 
                                as.data.frame() |>
                                suppressMessages() |>
                                suppressWarnings()
@@ -1253,9 +1374,10 @@ ltmp_fit_inla_juv <- function(dat) {
   status::status_try_catch(
   {
     dat <- dat |>
-      crossing(model_type = c("ZIP", "ZINB")) |> 
-      mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type),
-                          .f = ~ ltmp__fit_inla_juv(..1, ..2, ..3, ..4, type = ..5)
+      ## crossing(model_type = c("ZIP", "ZINB")) |> 
+      ## mutate(model = pmap(.l = list(data_group, newdata, form, label, model_type),
+      mutate(model = pmap(.l = list(data_group, newdata, form, label, family_type),
+                          .f = ~ ltmp__fit_inla_juv(..1, ..2, ..3, ..4, family_type = ..5)
                           ))
     dat
   },
@@ -1267,8 +1389,9 @@ ltmp_fit_inla_juv <- function(dat) {
   return(dat)
 }
 
-ltmp__fit_inla_juv <- function(dat, newdata, form, label, type = "binomial") {
-  label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+ltmp__fit_inla_juv <- function(dat, newdata, form, label, family_type = "poisson") {
+  ## label <- paste0(DATA_PATH, "modelled/", label, "_", type, ".rds")
+  label <- paste0(DATA_PATH, "modelled/", label, ".rds")
   print(label)
   environment(form) <- new.env()
   data_pred <- dat |>
@@ -1289,12 +1412,38 @@ ltmp__fit_inla_juv <- function(dat, newdata, form, label, type = "binomial") {
   form <- convert_to_cellmeans(form)
   priors <- make_strong_priors(dat)
   
-  if (type == "ZIP") {
-    set.seed(123)
+  ## if (type == "zeroinflatedpoisson1") {
+  ##   set.seed(123)
+  ##   mod.inla <- try({
+  ##     inla(form,
+  ##          data=data_pred,
+  ##          family='zeroinflatedpoisson1',
+  ##          control.family=list(link='log'),
+  ##          control.predictor=list(link=1, compute=TRUE),
+  ##          control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+  ##          control.compute=list(dic=TRUE, cpo=TRUE, waic=TRUE, config=TRUE)
+  ##          )
+  ##   }, silent = TRUE
+  ##   )
+  ## }
+  ## if (type == "zeroinflatednbinomial1") {
+  ##   set.seed(123)
+  ##   mod.inla <- try({
+  ##     inla(form,
+  ##          data=data_pred,
+  ##          family='zeroinflatednbinomial1',
+  ##          control.family=list(link='log'),
+  ##          control.predictor=list(link=1, compute=TRUE),
+  ##          control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
+  ##          control.compute=list(dic=TRUE, cpo=TRUE, waic=TRUE, config=TRUE)
+  ##          )
+  ##   }, silent = TRUE
+  ##   )
+  ## }
     mod.inla <- try({
       inla(form,
            data=data_pred,
-           family='zeroinflatedpoisson1',
+           family=family_type,
            control.family=list(link='log'),
            control.predictor=list(link=1, compute=TRUE),
            control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
@@ -1302,21 +1451,6 @@ ltmp__fit_inla_juv <- function(dat, newdata, form, label, type = "binomial") {
            )
     }, silent = TRUE
     )
-  }
-  if (type == "ZINB") {
-    set.seed(123)
-    mod.inla <- try({
-      inla(form,
-           data=data_pred,
-           family='zeroinflatednbinomial1',
-           control.family=list(link='log'),
-           control.predictor=list(link=1, compute=TRUE),
-           control.fixed = list(mean = priors$prior_mean, prec = priors$prior_prec),
-           control.compute=list(dic=TRUE, cpo=TRUE, waic=TRUE, config=TRUE)
-           )
-    }, silent = TRUE
-    )
-  }
   if (inherits(mod.inla, "try-error")) {
     return("")
   }else {
@@ -1451,11 +1585,13 @@ ltmp_raw_data_summaries_manta <- function(dat) {
                              data_group |> 
                                group_by(REEF, fYEAR) |> 
                                summarise(Mean = mean(Cover),
-                                         Median = median(Cover)) |> 
+                                         Median = median(Cover),
+                                         .groups = "keep") |> 
                                ungroup() |> 
                                group_by(fYEAR) |> 
                                summarise(Mean = mean(Mean),
-                                         Median = median(Median)) |> 
+                                         Median = median(Median),
+                                         .groups = "keep") |> 
                                as.data.frame() |>
                                suppressMessages() |>
                                suppressWarnings()
@@ -1572,16 +1708,18 @@ ltmp_raw_data_summaries_fish <- function(dat) {
                               data_group |> 
                                 mutate(value = get(model_response)) |> 
                                 group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
-                                summarise(value = sum(value)) |> 
+                                summarise(value = sum(value), .groups = "keep") |> 
                                 ungroup() |> 
                                 group_by(REEF, fYEAR) |> 
                                 summarise(Mean = mean(value),
-                                          Median = median(value)
+                                          Median = median(value),
+                                          .groups = "keep"
                                           ) |>
                                 ungroup() |> 
                                 group_by(fYEAR) |> 
                                 summarise(Mean = mean(Mean),
-                                          Median = median(Median)
+                                          Median = median(Median),
+                                          .groups = "keep"
                                           ) |>
                                 as.data.frame()
                             }

@@ -12,14 +12,13 @@
 ##2. direct editor to run R within the container
 ## M-x ess-remote
 ##3. set wd to /home/Project/R
-setwd("/home/Project/R")
+##setwd("/home/Project/R")
 
 ## remotes::install_github('open-AIMS/status', ref = 'adapt', force = TRUE)
 
 
 ## Remove the following and replace with pulling from a repo
-system("cp -r /data/spatial ../data/spatial")
-
+#system("cp -r /data/spatial ../data/spatial")
 
 
 library(status)
@@ -29,8 +28,9 @@ source("ltmp_startup_functions.R")
 
 args <- commandArgs()
 
-if (ltmp_is_parent()) ltmp_start_matter(args)
 
+if (ltmp_is_parent()) ltmp_start_matter(args)
+## print(status::get_setting(element = "data_method"))
 ## Photo-transect analyses
 if (status::get_setting(element = "data_method") == "photo-transect") 
   source("ltmp_pt_cover.R")
@@ -40,7 +40,7 @@ if (status::get_setting(element = "data_method") == "manta")
   source("ltmp_manta_cover.R")
 
 ## Juveniles analyses
-if (status::get_setting(element = "data_method") == "juvenile") 
+if (status::get_setting(element = "data_method") %in% c("juvenile", "juveniles")) 
   source("ltmp_juvenile_cover.R")
 
 ## Fish analyses

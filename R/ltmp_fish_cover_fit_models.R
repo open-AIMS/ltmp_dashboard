@@ -1,6 +1,7 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
-source("ltmp_write_functions.R")
+## source("ltmp_write_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
@@ -13,6 +14,8 @@ for (s in  str_subset(status_$status[[4]]$items, "_pt$|_manta$|_juv$"))
 ## There is two processing steps done at this stage.                 ##
 #######################################################################
 data <- ltmp_load_processed_data_pt()
+
+data <- data |> mutate(sub_model = fish_sub)
 
 #######################################################################
 ## Create the nested tibble                                          ##
@@ -31,7 +34,12 @@ model_lookup <- tribble(
   dplyr::select(-VARIABLE) |> 
   crossing(VARIABLE = unique(data$VARIABLE)) |>
   dplyr::filter(!(VARIABLE %in% c("Damselfishes", "Total fishes", "Harvested", "Herbivores") &
-                model_type == "Biomass"))
+                  model_type == "Biomass")) |>
+  dplyr::select(-sub_model) #|>
+  ## full_join(data |>
+  ##           dplyr::select(sub_model, VARIABLE) |>
+  ##           distinct()
+  ##           )
 
 data <- data |>
   ## the fish data does not have fDEPTH, yet it needs to be there for
@@ -119,6 +127,7 @@ null <- data |> ltmp_export_raw_data_pt()
 ## - poisson (Abundance)                                             ##
 #######################################################################
 data <- data |> ltmp_fit_inla_fish()
+gc(verbose = FALSE, full = TRUE)
 
 #######################################################################
 ## Calculate posteriors                                              ##
@@ -143,6 +152,7 @@ data <- data |> ltmp_choose_model()
 
 filenm <- str_replace(data$label[[1]], "([^_]*_[^_]*_[^_]*)_.*", "\\1")
 saveRDS(data, file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
+## data <- readRDS(file = paste0(DATA_PATH, "/modelled/", filenm, ".rds"))
 
 #######################################################################
 ## Generate a plot that compares cellmeans from raw and each model   ##
@@ -164,8 +174,9 @@ raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots(model_lookup)
 ## bucket if it exists.                                              ##
 #######################################################################
 data_export <- data |> ltmp_prepare_export(model_lookup)
-data_export |> write_csv(file = status::get_setting(element = "csv_file"))
-write_aws(filenm = basename(gsub(".rds$", ".csv", status::get_setting(element = "csv_file"))),
-            catalog_file = TRUE)
+data_export |> ltmp_export_data()
 
-
+#######################################################################
+## Delete all the non-selected model candidates                      ##
+#######################################################################
+data |> ltmp_delete_non_selected_models()

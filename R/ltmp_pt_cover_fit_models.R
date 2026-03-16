@@ -1,5 +1,6 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
@@ -11,7 +12,7 @@ for (s in  str_subset(status_$status[[4]]$items, "_juv$|_fish$|_manta$"))
 ## Load the processed data in preparaton for model fitting.          ##
 ## There is two processing steps done at this stage.                 ##
 #######################################################################
-data <- ltmp_load_processed_data_pt()
+data <- ltmp_load_processed_data_pt() |> mutate(sub_model = NA)
 
 #######################################################################
 ## Create the nested tibble                                          ##
@@ -23,7 +24,8 @@ model_lookup <- tribble(
   ) |>
   dplyr::select(-VARIABLE) |> 
   crossing(VARIABLE = unique(data$VARIABLE)) |> 
-  crossing(family_type = c("binomial", "beta-binomial"))
+  crossing(family_type = c("binomial", "beta-binomial")) |>
+  dplyr::select(-sub_model)
 
 data <- data |> ltmp_nested_table(model_lookup)
 
@@ -171,3 +173,8 @@ data_export |> ltmp_export_data()
 
 ## data$data[[6]] |>  filter(REEF == "Geoffrey Bay", SITE_NO == 1, TRANSECT_NO == 1, fYEAR == 2024, fDEPTH == 2) |> as.data.frame() |> head()
 
+
+#######################################################################
+## Delete all the non-selected model candidates                      ##
+#######################################################################
+data |> ltmp_delete_non_selected_models()
