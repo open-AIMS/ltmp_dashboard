@@ -52,6 +52,20 @@ lookup <- ltmp_group_lookup_pt(data)
 #########################################################################
 data <- ltmp_reduce_groups_pt(data)
 
+if (status::get_setting(element = "data_scale") == "reef") {
+  data_lookup <- data |>
+    dplyr::select(P_CODE, SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE) |>
+    distinct() |>
+    mutate(label = paste(
+             status::get_setting(element = "data_method"),
+             status::get_setting(element = "data_scale"),
+             status::get_setting(element = "domain_name"),
+             sep = "_")
+           )
+  filenm <- data_lookup$label[[1]]
+  saveRDS(data_lookup, file = paste0(DATA_PATH, "/processed/", filenm, ".rds"))
+}
+
 ###################################################################################
 ## Processing steps                                                              ##
 ## - remove REGION and FRAME                                                     ##
