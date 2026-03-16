@@ -1,9 +1,12 @@
 ## Run the following
 ## docker container kill ltmp-monitoring-model:latest
-##1. Run the docker container
-### on dev VM
-#### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
-#### docker run --rm -it --entrypoint R -v ~/data:/home/analysis/data2 -v ~/dev/R:/home/analysis/scripts --name ltmp ltmp
+## 1. pull the docker container from github
+##    docker pull ghcr.io/open-aims/ltmp_dashboard:dev
+## 2. Run the docker container
+##    on dev VM
+##    docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev
+##    docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
+##    docker run --rm -it --entrypoint R -v ~/data:/home/analysis/data2 -v ~/dev/R:/home/analysis/scripts --name ltmp ltmp
 
 ## If running from terminal command line
 ##docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R
@@ -30,6 +33,7 @@ args <- commandArgs()
 
 
 if (ltmp_is_parent()) ltmp_start_matter(args)
+  
 ## print(status::get_setting(element = "data_method"))
 ## Photo-transect analyses
 if (status::get_setting(element = "data_method") == "photo-transect") 
@@ -46,4 +50,5 @@ if (status::get_setting(element = "data_method") %in% c("juvenile", "juveniles")
 ## Fish analyses
 if (status::get_setting(element = "data_method") == "fish") 
   source("ltmp_fish_cover.R")
+
 
