@@ -1,5 +1,6 @@
 source("ltmp_startup_functions.R")
 source("ltmp_process_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 3, title = "Process data")

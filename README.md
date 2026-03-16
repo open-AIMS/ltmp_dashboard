@@ -13,13 +13,19 @@ root
 |-Dockerfile
 |-README.md
 |-data
-| |-Shapefiles
-| | |-Features
-| | |-LTMP
-| | |-Great Barrier Reef Marine Park Boundary
-| | |-GBR_AIMS_Reef_Database_v5_11_subreeflab_convex_v3
-| | |-MarineWaterBodiesV2_4
-| | |-NRM_Marine Regions
+| |-parameters
+| | |-L-W co-effs.csv
+| | |-MPA paper trophic groups.csv
+| | |-density_table.csv
+| | |-traditional_fish.csv
+| |-spatial
+| | |-Shapefiles
+| | | |-Features
+| | | |-LTMP
+| | | |-Great Barrier Reef Marine Park Boundary
+| | | |-GBR_AIMS_Reef_Database_v5_11_subreeflab_convex_v3
+| | | |-MarineWaterBodiesV2_4
+| | | |-NRM_Marine Regions
 | |-bioregions.RData
 | |-domain.list.RData
 | |-gbr_3Zone.RData
@@ -34,6 +40,7 @@ root
 | |-ltmp_load_functions.R
 | |-ltmp_process_functions.R
 | |-ltmp_model_functions.R
+| |-ltmp_export_functions.R
 | |-ltmp_pt_cover.R
 | |-ltmp_pt_cover_load_data.R
 | |-ltmp_pt_cover_process_data.R
@@ -42,11 +49,16 @@ root
 | |-ltmp_manta_cover_load_data.R
 | |-ltmp_manta_cover_process_data.R
 | |-ltmp_manta_cover_fit_models.R
+| |-ltmp_fish_cover.R
+| |-ltmp_fish_cover_load_data.R
+| |-ltmp_fish_cover_process_data.R
+| |-ltmp_fish_cover_fit_models.R
 | |-process_db_extract.R
 | |-run_models.R
 | |-batch.R
 
 ```
+
 ## Running scripts
 
 The scripts are designed into a hierarchy in which a parent script can
@@ -62,11 +74,18 @@ commandline arguments of the following form (note, I have included
 linebreaks in the following to aid readability in this readme - do not
 included them when constructing a call to R):
 
-`Rscript 00_main.R <s3 address>/<DATA_METHOD>/<DATE>/process/<DATA_PROGRAM>/<YEAR>/<CRUISE_CODE>/
-<DOMAIN_CATEGORY>/<DOMAIN_NAME>/raw/<filename>.csv --method=<DATA_METHOD> --domain=<DOMAIN_NAME> 
---scale=<DOMAIN_CATEGORY> --status=<true|false> --refresh_data=<true|false>`
+```
+Rscript 00_main.R \
+  <s3 address>/<DATA_METHOD>/<DATE>/process/<DATA_PROGRAM>/<YEAR>/<CRUISE_CODE>/<DOMAIN_CATEGORY>/<DOMAIN_NAME>/raw/<filename>.csv \
+  --file=<SCRIPT_NAME> \
+  --path=<AWS_PATH> \
+  --method=<DATA_METHOD> \
+  --domain=<DOMAIN_NAME> \
+  --scale=<DOMAIN_CATEGORY> \
+  --status=<true|false> \
+  --refresh_data=<true|false>
+```
 
-`
 where:
 
 - <s3 address> is the s3 bucket address
@@ -92,15 +111,26 @@ where:
     - gbr (whole GBR)
 - <DOMAIN_NAME> is the name of the individual reef, bioregion, nrm,
   sector or region
-- <filename> is the base name for all input and output files 
-- --status (true or false) specifies whether a TUI status update
-  should be provided whilst the script is running 
-- --refresh_data (true or false) specifies whether the scripts should
-  start by removing any stored intermediate artifacts. Typically, this
-  is recommended. It ensures that old runs have do way of
-  inadvertently effecting current runs.
+- <SCRIPT_NAME> is the name of the script (e.g. 00_main.R)
 
-`
+The command line switches are: 
+
+--file=: the name of the R script to call (e.g. “00_main.R")
+--path=: full path to the reef_data.zip (e.g. folder or bucket address)
+--method: the method to apply, one of:
+  - photo-transect
+  - manta
+  - juvenile
+  - fish
+--domain: the name of the focal spatial domain (e.g. the name of the reef, NRM or sector)
+
+--scale: the spatial scale of the analysis (e.g. “reef”, “nrm”, “sector”)
+
+--status: whether (true) or not (false) to show the full status of progress within the logs
+
+--refresh_data: whether (true) or not (false) to wipe all intermediate artifacts before starting (only useful for debugging) 
+
+Note, --file=, --status= and --refresh_data= are optional.  The --file= argument is used to bypass steps in the sequence (mainly for dev and debugging) and if not supplied will be taken from the name of the script called as part of the command line. The later two command line argments will default to true if not provided
 
 
 When the parent script (00_main.R) is run, a complete set of intermediate
@@ -141,6 +171,27 @@ status of each set of routines and attempt to prevent R crashes. As a
 result, it is important that the logs be examined after each run to
 ensure there were no errors (marked by a `FAILURE` keyword in the
 log).
+
+## Docker
+
+Here is an example of running inside a docker container.
+
+```
+docker run -i --rm \
+  -v /etc/localtime:/etc/localtime \
+  -v /etc/timezone:/etc/timezone \
+  -v /home/mlogan/dev:/home/Project \
+  -v /home/mlogan/data:/data \
+  ltmp-monitoring-model:latest \
+  Rscript
+  /home/Project/R/00_main.R
+  --path='/data/fish/2021-01-14/process/ALL/2024/CA/Sectors/CA/raw/reef_data.zip' \
+  --method=fish \
+  --domain=CA \
+  --scale=Sectors \
+  --status=true \
+  --refresh_data=false
+```
 
 It is also possible to directly call one of the child scripts in order
 to bypass earlier routines (which are assumed to have already run

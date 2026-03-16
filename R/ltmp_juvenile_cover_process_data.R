@@ -1,10 +1,11 @@
 source("ltmp_startup_functions.R")
 source("ltmp_process_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 3, title = "Process data")
 
-for (s in  str_subset(status_$status[[3]]$items, "_pt$"))
+for (s in  str_subset(status_$status[[3]]$items, "_pt$|_manta$|_fish$"))
   status::remove_status_item(stage = 3, item = s)
 
 #######################################################################
@@ -41,7 +42,7 @@ lookup <- ltmp_group_lookup_juv(data)
 ## generate a vector of group names This will always be calculated but ##
 ## is only really relevant for reef level data                         ##
 #########################################################################
-data <- ltmp_reduce_groups_juv(data)
+data <- ltmp_reduce_groups_juv(data, lookup)
 
 ###################################################################################
 ## Processing steps                                                              ##
@@ -52,6 +53,8 @@ data <- ltmp_reduce_groups_juv(data)
 ## - count the number of points of each GROUP_CODE per REEF/SITE_NO/TRANSECT_NO  ##
 ## - generate a total number of points per REEF/SITE_NO/TRANSECT_NO              ##
 ## - calculate a percent cover for each GROUP_CODE (not for analyses)            ##
+## - remove cases for which the AVAILABLE_SUBSTRATE is NA.  These are due to     ##
+##   a mismatch in the timing of upload of juvenile counts and benthic data.     ##
 ###################################################################################
 data <- ltmp_process_points_juv(data, data.spatial)
 

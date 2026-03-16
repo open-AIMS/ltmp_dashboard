@@ -17,8 +17,9 @@ ltmp_is_parent <- function() {
 ltmp_start_matter <- function(args = commandArgs()) {
     ltmp_initialise_status()                 ## create the status list
     status::status_set_stage(stage = 1, title = "Configure system")
-    status::display_status_terminal()        ## display an opening banner
+    ## if (do_display) status::display_status_terminal()        ## display an opening banner
     ltmp_parse_cla(args)                    ## parse command line arguments
+    if (do_display) status::display_status_terminal()        ## display an opening banner
     if (status::get_setting("refresh_data")) ltmp_clear_data()
     ltmp_generate_other_settings() 
     ## ltmp_initialise_log()       ## create the log 
@@ -34,6 +35,8 @@ ltmp_initialise_status <- function() {
     project_name = "LTMP/MMP dashboard",
     box_width = 100
   ) ## create the status list
+      assign("do_log", FALSE, envir = .GlobalEnv)
+      assign("do_display", FALSE, envir = .GlobalEnv)
 }
 
 ltmp_parse_cla <- function(args) {
@@ -41,7 +44,8 @@ ltmp_parse_cla <- function(args) {
     parent_file <- FALSE
     ## Generate a message outlining the necessary format of the command line arguments
     valid_cla <- paste0("The call must be of the form:\n",
-                        "<script>.R --file=\"<PATH>\" --status=<true|false> --sql\n",
+                        "<script>.R --file=\"<PATH>\" --display_logs=<true|false>",
+                        "\n--status=<true|false> --sql\n",
                         "\n<script>: \ta script name",
                         "\n<PATH>: \ta valid path to a folder containing the input data",
                         "\n<true|false>:\twhether to provide full status"
@@ -87,14 +91,17 @@ ltmp_parse_cla <- function(args) {
           if (grepl("--path=s3.*", arg, perl = TRUE)) {         ## Must be AWS source
             status::add_setting(element = "data_from", item = "AWS", name = "Data source")
             ## parse out the domain unit (e.g. reef, region etc)
-            SCALE <- gsub('.*process/[^/]*/[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
-            status::add_setting(element = "data_scale", item = SCALE, name = "Data scale")
-            DOMAIN_NAME <- gsub('.*process/[^/]*/[^/]*/[^/]*/[^/]*/(.*)/.*', '\\1', AWS_PATH)
-            status::add_setting(element = "domain_name", item = DOMAIN_NAME, name = "Domain name")
-            DATA_METHOD <- gsub('[^/]*//[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
-            status::add_setting(element = "data_method", item = DATA_METHOD, name = "Data type")
-            DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
-            status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            ## SCALE <- gsub('.*process/[^/]*/[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
+            ## status::add_setting(element = "data_scale", item = SCALE, name = "Data scale")
+            ## DOMAIN_NAME <- gsub('.*process/[^/]*/[^/]*/[^/]*/[^/]*/(.*)/.*', '\\1', AWS_PATH)
+            ## status::add_setting(element = "domain_name", item = DOMAIN_NAME, name = "Domain name")
+            ## ## DATA_METHOD <- gsub('[^/]*//[^/]*/[^/]*/([^/]*)/.*', '\\1', AWS_PATH)
+            ## ## status::add_setting(element = "data_method", item = DATA_METHOD, name = "Data type")
+            has_data_program_argument <- any(grepl("--data_program=.*", args, perl = TRUE))
+            if (!has_data_program_argument) {
+              DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
+              status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            }
           } else  {           ## local copy
             status::add_setting(element = "data_from", item = "local copy", name = "Data source")
             DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
@@ -137,12 +144,23 @@ ltmp_parse_cla <- function(args) {
                           item = TRUE,
                           name = "Display status")
     ## reset the logfile directory - so that it is constantly being written back to the bucket
+    print(paste("AWS_PATH =", AWS_PATH))
     assign("aws_out_path", paste0(AWS_PATH, "output/"), envir = .GlobalEnv)
-    if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
-    log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
-    if (!file.exists(log_file)) file.create(log_file)
-    if (file.exists(log_file)) unlink(log_file)
-    assign("log_file", log_file, envir = .GlobalEnv)
+    if (status::get_setting("data_from") != "AWS") {
+      if (!dir.exists(aws_out_path)) dir.create(aws_out_path)
+      log_file <- paste0(aws_out_path, gsub("(\\.csv|\\.zip)", ".log", FILENAME))
+      print(paste("log_file = ", log_file))
+      ## print(paste0('touch "',log_file,'"'))
+      if (!file.exists(log_file)) file.create(log_file)
+      if (file.exists(log_file)) unlink(log_file)
+      assign("log_file", log_file, envir = .GlobalEnv)
+    } else {  ## if is AWS
+      log_file <- paste0(status::get_setting("status_dir"), "/", 
+                         status::get_setting("log_file"))
+      ## status::add_setting(element = "log_file", item = log_file, name = "Log filename")
+      assign("log_file", log_file, envir = .GlobalEnv)
+      
+    }
   },
   stage_ = 1,
   order_ = 1,
@@ -152,6 +170,13 @@ ltmp_parse_cla <- function(args) {
 }
 
 get_params_from_cla <- function(args) {
+  has_data_program_argument <- any(grepl("--data_program=.*", args, perl = TRUE))
+  if(has_data_program_argument) {
+    arg <- args[grep("--data_program=.*", args)]
+    status::add_setting(element = "data_program",
+                        item = gsub("--data_program=(.)", "\\1", arg),
+                        name = "Data program")
+  } 
   has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
   if(has_method_argument) {
     arg <- args[grep("--method=.*", args)]
@@ -173,6 +198,30 @@ get_params_from_cla <- function(args) {
     status::add_setting(element = "domain_name",
                         item = gsub("--domain=(.)", "\\1", arg),
                         name = "Domain name")
+  }
+
+  has_display_argument <- any(grepl("--display_log=.*", args, perl = TRUE))
+  if(has_display_argument) {
+    ## arg <- ifelse(any(grepl('--display_log ?= ?(true|t|TRUE|T)',
+    ##                                          args,
+    ##                                          perl = TRUE)), TRUE, FALSE)
+    arg <- args[grep("--display_log=.*", args)]
+    arg <- gsub("'", "", arg) 
+    arg <- ifelse(any(grepl('--display_log ?= ?(false|f|FALSE|F)', arg, perl = TRUE)), FALSE, TRUE)
+    status::add_setting(element = "display_log",
+                        item = arg,
+                        ## item = gsub("--display_log=(.)", "\\1", arg),
+                        name = "Display logs")
+    if(!arg) {
+      assign("do_log", FALSE, envir = .GlobalEnv)
+      assign("do_display", FALSE, envir = .GlobalEnv)
+    }
+  } else {
+    status::add_setting(element = "display_log",
+                        item = TRUE,
+                        name = "Display logs")
+    assign("do_log", TRUE, envir = .GlobalEnv)
+    assign("do_display", TRUE, envir = .GlobalEnv)
   }
   DEBUG_MODE <- ifelse(any(grepl('--status ?= ?(true|t|TRUE|T)', args, perl = TRUE)), TRUE, FALSE)
   status::add_setting(element = "display_status",
@@ -211,7 +260,7 @@ ltmp_generate_other_settings <- function() {
     ## Location of folder to store R data objects
     assign("DATA_PATH", "../data/", envir = globalenv())
     if (!dir.exists(DATA_PATH)) dir.create(DATA_PATH)
-    status::add_setting(element = "data_path", item = DATA_PATH, name = "Data path")
+    status::add_setting(element = "data_path", item = DATA_PATH, name = "Local data path")
 
     ## Define the name of the input benthic data
     assign("INPUT_DATA", "reef_data.zip", envir = globalenv())
@@ -266,7 +315,7 @@ ltmp_check_packages <- function() {
     options(tidyverse.quiet = TRUE)
     pkgs <- c(
       "tidyverse", "sf", "ggspatial", "INLA", "knitr", "broom.mixed",
-      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon"
+      "DHARMa", "jsonlite", "rlang", "tidybayes", "crayon", "furrr", "future"
       ## "testthat",
       ## "rnaturalearth", "rnaturalearthdata", "patchwork", "ggnewscale",
       ## "inlabru", "cli", "stars", "geojsonR", "geojsonsf", "s2",

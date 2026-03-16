@@ -1,5 +1,6 @@
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")
+source("ltmp_export_functions.R")
 if (ltmp_is_parent()) ltmp_start_matter(args)
 
 status::status_set_stage(stage = 4, title = "Fit models")
@@ -11,7 +12,7 @@ for (s in  str_subset(status_$status[[4]]$items, "_pt$|_juv$|_fish$"))
 ## Load the processed data in preparaton for model fitting.          ##
 ## There is two processing steps done at this stage.                 ##
 #######################################################################
-data <- ltmp_load_processed_data_pt()
+data <- ltmp_load_processed_data_pt() |> mutate(sub_model = NA)
 
 #######################################################################
 ## Create the nested tibble                                          ##
@@ -22,7 +23,8 @@ model_lookup <- tribble(
   ) |>
   dplyr::select(-VARIABLE) |> 
   crossing(VARIABLE = unique(data$VARIABLE)) |> 
-  crossing(family_type = c("beta"))
+  crossing(family_type = c("beta")) |>
+  dplyr::select(-sub_model)
 
 data <- data |> ltmp_nested_table(model_lookup)
 
@@ -133,3 +135,15 @@ data_compare <- data |> ltmp_compare_models(model_lookup)
 #######################################################################
 raw_summary_plots <- data |> ltmp_raw_summary_plots(model_lookup)
 ## raw_group_summary_plots <- data |> ltmp_raw_group_summary_plots()
+
+#######################################################################
+## Prepare model summaries for export and then export to the AWS     ##
+## bucket if it exists.                                              ##
+#######################################################################
+data_export <- data |> ltmp_prepare_export(model_lookup)
+data_export |> ltmp_export_data()
+
+#######################################################################
+## Delete all the non-selected model candidates                      ##
+#######################################################################
+data |> ltmp_delete_non_selected_models()
