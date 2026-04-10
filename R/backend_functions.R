@@ -21,23 +21,23 @@ get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
                !is.na(path))
     ## alert(scale)
     ##   alert(unique(models$data_scale))
-    ## write_csv(models, file = paste0("~/data/", "candidate_models_1.csv")) 
+    ## write_csv(models, file = paste0("~/data/", "candidate_models_1.csv"))
 
-    ## write_csv(models, file = paste0(config_$data_path, "candidate_models_2.csv")) 
+    ## write_csv(models, file = paste0(config_$data_path, "candidate_models_2.csv"))
   }
   if (is.null(models))
     models <- blank_candidate_models() |>
         filter(data_type %in% data_types,
                data_scale == scale,
                !is.na(path))
-  
+
   ## config_$model <- models
   ## assign("config_", config_, envir = .GlobalEnv)
   cat(file = stderr(), paste("refresh pressed:", models), "\n")
-  current_candidates <- models 
+  current_candidates <- models
     ## filter(data_scale == scale,
     ##        data_type == reefs_tab_lookup[[tab_name]]$data_type)
-  ## write_csv(current_candidates, file = paste0(config_$data_path, "candidate_models.csv")) 
+  ## write_csv(current_candidates, file = paste0(config_$data_path, "candidate_models.csv"))
   current_candidates
 }
 
@@ -45,8 +45,8 @@ extract_db_cases <- function(table_name, d_name) {
   if(does_db_table_exist(table_name)) {
     con <- dbConnect(RSQLite::SQLite(), config_$db_path)
     data <- tbl(con, table_name) |>
-      filter(domain_name %in% d_name) |> 
-      collect() ##|> 
+      filter(domain_name %in% d_name) |>
+      collect() ##|>
 
     dbDisconnect(con)
     return(data)
@@ -81,7 +81,8 @@ create_db_table_from_extract <- function(db_path, data_type, csv_file) {
 create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
   if (data_type == "photo-transect") {
     out2 <- system(paste0(
-      "cut -d, -f17,6,28,9 < ", csv_file, " | uniq |
+      ## "cut -d, -f17,6,28,9 < ", csv_file, " | uniq |
+      "cut -d, -f17,6,29,9 < ", csv_file, " | uniq |
     Rscript -e \"library(dplyr); library(readr); input <- read_csv(stdin());
     input  <- input |> mutate(SURVEY_DATE = as.POSIXct(SURVEY_DATE, format='%d-%b-%Y %H:%M:%S')) |>
     group_by(NRM_REGION, A_SECTOR, AIMS_REEF_NAME) |>
@@ -130,8 +131,8 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   ## dbWriteTable(con, paste0(data_type, "_sum1"), out2, overwrite = TRUE)
   data_info <- file.mtime(csv_file)
-  data <- as.data.frame(out2) |> 
-    slice(-1)  |> 
+  data <- as.data.frame(out2) |>
+    slice(-1)  |>
     separate(everything(),
              into = c("nrm", "sector", "reef", "survey_date"), sep = ",")  |>
     mutate(## reef = str_replace_all(reef, '"', ""),
@@ -154,7 +155,7 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
   ##          "reefe_model_data_hash_flag" = NA
   ##          )
   ## data <-
-  ##   data |> 
+  ##   data |>
   ##   add_column(!!!extra_fields[setdiff(names(extra_fields), names(data))])
   ## print(head(data))
   dbWriteTable(con, paste0(data_type, "_sum"), data, overwrite = TRUE)
@@ -165,28 +166,34 @@ create_db_summary_from_extract <- function(db_path, data_type, csv_file) {
 make_dashboard_data <- function(method, scale) {
   data <- tibble("Blank")
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  tbls <- dbListTables(con) 
+  tbls <- dbListTables(con)
   if (method %in% tbls) {
     data <- tbl(con, method) |>
       head(20) |>
       collect()
   }
   dbDisconnect(con)
- return(data) 
+ return(data)
 }
-
-
+## retrieve the summary data from the database
 make_dashboard_summary <- function(method, scale) {
+  ## cat(paste0("db_path:", config_$db_path), "\n",  file = config_$dashboard_log, append = TRUE)
   data <- tibble("Blank")
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  tbls <- dbListTables(con) 
+  tbls <- dbListTables(con)
+  ## alert(tbls)
+  ## cat(paste0("tbls:", tbls), "\n",  file = config_$dashboard_log, append = TRUE)
   if (scale %in% c("reef", "sql") &
       paste0(method, "_sum") %in% tbls) {
     if (scale == "sql") {
       db_tbl <- paste0(method, "_sum")
-      data <- tbl(con, db_tbl) 
+      ## cat(paste0("db_tbl:", db_tbl), "\n",  file = config_$dashboard_log, append = TRUE)
+      data <- tbl(con, db_tbl)
       ## alert(paste("make_dashboard_summary:",db_tbl))
+      ## alert(method)
       ## alert(colnames(data))
+      ## alert(nrow(data))
+      ## alert(method)
       ## sector
       if (paste0(method, "_sector_sum") %in% tbls) {
         data <- data |>
@@ -194,11 +201,11 @@ make_dashboard_summary <- function(method, scale) {
             tbl(con, paste0(method, "_sector_sum")) |>
             dplyr::select(domain_name, extract_data_hash) |>
             distinct(),
-            by = c("sector" = "domain_name")) |> 
-          dplyr::rename(sector_extract_data_hash = extract_data_hash) 
+            by = c("sector" = "domain_name")) |>
+          dplyr::rename(sector_extract_data_hash = extract_data_hash)
 
           if ("models" %in% tbls) {
-            data <- data  |> 
+            data <- data  |>
               left_join(tbl(con, "models") |>
                         filter(data_type == method,
                                data_scale == "sector") |>
@@ -214,10 +221,11 @@ make_dashboard_summary <- function(method, scale) {
         ##                algo = "sha256", file = TRUE)
         hash <- NA
         data <- data |>
-        ##   collect() |> 
+        ##   collect() |>
           mutate(sector_extraction_data_hash = hash,
                  sector_model_date = NA,
                  sector_model_data_hash = NA)
+        ## alert(colnames(data))
       }
       ## nrm
       if (paste0(method, "_nrm_sum") %in% tbls) {
@@ -226,13 +234,13 @@ make_dashboard_summary <- function(method, scale) {
             tbl(con, paste0(method, "_nrm_sum")) |>
             dplyr::select(domain_name, extract_data_hash) |>
             distinct(),
-            by = c("nrm" = "domain_name")) |> 
+            by = c("nrm" = "domain_name")) |>
           dplyr::rename(nrm_extract_data_hash = extract_data_hash)
         if ("models" %in% tbls) {
           data <- data |>
           left_join(tbl(con, "models") |>
                     filter(data_type == method,
-                           data_scale == "nrm") |> 
+                           data_scale == "nrm") |>
                     select(domain_name, nrm_model_date = model_date,
                            nrm_model_data_hash),
                     by = c("nrm" = "domain_name"))
@@ -242,7 +250,7 @@ make_dashboard_summary <- function(method, scale) {
         ##                algo = "sha256", file = TRUE)
         hash <- NA
         data <- data |>
-        ##   collect() |> 
+        ##   collect() |>
           mutate(nrm_extraction_data_hash = hash,
                  nrm_model_date = NA,
                  nrm_model_data_hash = NA)
@@ -254,13 +262,13 @@ make_dashboard_summary <- function(method, scale) {
             tbl(con, paste0(method, "_reef_sum")) |>
             dplyr::select(domain_name, extract_data_hash) |>
             distinct(),
-            by = c("reef" = "domain_name")) |> 
-          dplyr::rename(reef_extract_data_hash = extract_data_hash)  
+            by = c("reef" = "domain_name")) |>
+          dplyr::rename(reef_extract_data_hash = extract_data_hash)
         if ("models" %in% tbls) {
-          data <- data |> 
+          data <- data |>
             left_join(tbl(con, "models") |>
                       filter(data_type == method,
-                             data_scale == "reef") |> 
+                             data_scale == "reef") |>
                       select(domain_name, reef_model_date = model_date,
                              reef_model_data_hash),
                       by = c("reef" = "domain_name"))
@@ -270,12 +278,12 @@ make_dashboard_summary <- function(method, scale) {
         ##                algo = "sha256", file = TRUE)
         hash <- NA
         data <- data |>
-        ##   collect() |> 
+        ##   collect() |>
           mutate(reef_extraction_data_hash = hash,
                  reef_model_date = NA,
                  reef_model_data_hash = NA)
       }
-      data <- data |> 
+      data <- data |>
         collect() |>
         distinct()
 
@@ -283,21 +291,21 @@ make_dashboard_summary <- function(method, scale) {
                paste0(method, "_reef_sum") %in% tbls) { ## e.g. it is "reef"
       db_tbl <- paste0(method, "_sum")
       data <- tbl(con, db_tbl)  |>
-        dplyr::select(-nrm, -sector)  |> 
+        dplyr::select(-nrm, -sector)  |>
         left_join(
           tbl(con, paste0(method, "_reef_sum")) |>
           dplyr::select(domain_name, extract_data_hash) |>
           distinct(),
-          by = c("reef" = "domain_name")) |> 
+          by = c("reef" = "domain_name")) |>
         dplyr::rename(reef_extract_data_hash = extract_data_hash)
       if ("models" %in% tbls) {
-        data <- data |> 
+        data <- data |>
           left_join(tbl(con, "models") |>
                     filter(data_type == method,
-                           data_scale == "reef") |> 
+                           data_scale == "reef") |>
                     select(domain_name, reef_model_date = model_date,
                            reef_model_data_hash),
-                    by = c("reef" = "domain_name")) ## |> 
+                    by = c("reef" = "domain_name")) ## |>
           ## collect() |>
           ## distinct()
       }
@@ -309,31 +317,31 @@ make_dashboard_summary <- function(method, scale) {
       scale == "reef" ~ c("sector", "nrm"),
       scale == "sector" ~ c("reef", "nrm"),
       scale == "nrm" ~ c("reef", "sector")
-    ) 
+    )
     db_tbl <- paste0(method, "_sum")
-    data <- tbl(con, db_tbl) |> 
-      dplyr::select(-all_of(scales_to_remove)) |> 
+    data <- tbl(con, db_tbl) |>
+      dplyr::select(-all_of(scales_to_remove)) |>
       dplyr::group_by(!!sym(scale)) |>
       summarise(survey_date = max(survey_date),
-                extraction_date = min(extraction_date)) |> 
-      dplyr::ungroup() |> 
+                extraction_date = min(extraction_date)) |>
+      dplyr::ungroup() |>
       left_join(
         tbl(con, paste0(method, "_", scale, "_sum")) |>
         dplyr::select(domain_name, extract_data_hash) |>
         distinct(),
-        by = setNames("domain_name", scale)) |> 
-      dplyr::rename(setNames("extract_data_hash", paste0(scale, "_extract_data_hash"))) 
+        by = setNames("domain_name", scale)) |>
+      dplyr::rename(setNames("extract_data_hash", paste0(scale, "_extract_data_hash")))
     if ("models" %in% tbls) {
-      data <- data |> 
+      data <- data |>
         left_join(tbl(con, "models") |>
                   filter(data_type == method,
-                         data_scale == scale) |> 
+                         data_scale == scale) |>
                   select(domain_name,
                          !!sym(paste0(scale, "_model_date")) := model_date,
                          paste0(scale, "_model_data_hash")),
-                  by = setNames("domain_name", scale)) 
+                  by = setNames("domain_name", scale))
     }
-    data <- data |> 
+    data <- data |>
       collect() |>
       distinct()
   }
@@ -344,11 +352,12 @@ make_dashboard_summary <- function(method, scale) {
     ##write_csv(data, file = "/home/mlogan/data/test.csv")
     ## alert(as.POSIXct(data$sector_model_date[11:20]))
     data <- data |>
-      ## slice(70:80) |> 
+      ## slice(70:80) |>
       mutate(across(ends_with("date"), as.POSIXct))
+    ## alert(colnames(data))
   }
   dbDisconnect(con)
-  return(data) 
+  return(data)
 }
 
 ## Retrieve data from database models table
@@ -356,19 +365,19 @@ get_db_model_data<- function(method = NULL, scale = NULL, domain = NULL) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
   data <- 1
   data <- tbl(con, "models") |>
-    collect() ##|> 
+    collect() ##|>
     ## dplyr::select(data_type, data_scale, domain_name, matches(".*_hash"))
     ## dplyr::select(data_type, data_scale, domain_name, contains("_hash"))
   if (!is.null(method)) {
-    data <- data |> 
+    data <- data |>
     filter(data_type == method)
   }
   if (!is.null(scale)) {
-    data <- data |> 
+    data <- data |>
     filter(data_scale == scale)
   }
   if (!is.null(domain)) {
-    data <- data |> 
+    data <- data |>
     filter(domain_name %in% domain)
   }
   dbDisconnect(con)
@@ -390,7 +399,7 @@ update_db_models <- function() {
   ## write.csv(fls, file = "../data/temp1.csv")
   fls_wch <- str_detect(basename(fls), "^[^_]*_[^_]*_[^_]*\\.rds$")
   ## write.csv(fls_wch, file = "../data/temp2.csv")
-  models <- tibble(path = unique(fls[fls_wch])) |> 
+  models <- tibble(path = unique(fls[fls_wch])) |>
     mutate(mod = map(.x = path,
                      .f = ~ {
                        ss <- readRDS(.x)$label |>
@@ -416,16 +425,16 @@ update_db_models <- function() {
                                 reef_model_data_hash = "",
                                 sector_model_data_hash = "",
                                 nrm_model_data_hash = "",
-                                selected_flag) |> 
+                                selected_flag) |>
                          as.data.frame()
                      })) |>
     unnest(c(mod)) |>
-    dplyr::rename(model_path = path) |> 
+    dplyr::rename(model_path = path) |>
     mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale))
 
   write.csv(models, file = "../data/temp1.csv")
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  tbls <- dbListTables(con) 
+  tbls <- dbListTables(con)
   dbDisconnect(con)
   if ("models" %in% tbls & 1 == 1) {
     models_db <- get_db_model_data()
@@ -442,9 +451,9 @@ update_db_models <- function() {
                        "shelf",
                        "model_type",
                        "sub_model",
-                       "selected_flag")) 
+                       "selected_flag"))
   }
-  write_csv(models, file = paste0(config_$data_path, "models.csv")) 
+  write_csv(models, file = paste0(config_$data_path, "models.csv"))
   con <- dbConnect(RSQLite::SQLite(), dbname = config_$db_path)
   copy_to(con, models, name = "models", temporary = FALSE, overwrite = TRUE)
   dbDisconnect(con)
@@ -463,25 +472,25 @@ make_data_hash <- function(method, scale, domain) {
   fls <- list.files(data_paths,
                     recursive = TRUE, full.names = TRUE)
   ## alert(fls)
-  fls_wch <- str_detect(fls, paste0(".*/process/[^/]*/[^/]*/[^/]*/",data_scale,"/.*.csv$")) 
+  fls_wch <- str_detect(fls, paste0(".*/process/[^/]*/[^/]*/[^/]*/",data_scale,"/.*.csv$"))
   models <- tibble(path = unique(fls[fls_wch])) |>
     mutate(data_type = str_replace(path, ".*/data/([^/]*)/.*", "\\1")) |>
     mutate(data_scale = str_replace(path, ".*/process/[^/]*/[^/]*/[^/]*/([^/]*)/.*", "\\1")) |>
     mutate(domain_name = str_replace(path, ".*/process/[^/]*/[^/]*/[^/]*/[^/]*/([^/]*)/.*", "\\1")) |>
     mutate(model_data_hash = map(.x = path,
                            .f =  ~ digest(.x, algo = "sha256", file = TRUE))) |>
-    unnest(model_data_hash) |> 
-    mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale)) |> 
+    unnest(model_data_hash) |>
+    mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale)) |>
     filter(data_type == method,
            data_scale == scale
-           ) 
+           )
   if (!is.null(domain)) models <- models |> filter(domain_name %in% domain)
   models
 }
 
 get_db_summary_table <- function(method, scale) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  tbls <- dbListTables(con) 
+  tbls <- dbListTables(con)
   ## if (scale == "reef") {
   ##   db_sum_tbl <- paste0(method, "_sum")
   ## } else {
@@ -492,7 +501,7 @@ get_db_summary_table <- function(method, scale) {
   ## print(tbls)
   if (db_sum_tbl %in% tbls) {
     tb <- tbl(con, db_sum_tbl) |>
-      collect() 
+      collect()
   } else {
     tb <- NULL
   }
@@ -508,10 +517,10 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
   tb <- get_db_summary_table(method = method, scale = scale)
   if (!is.null(tb)) {
     if (nrow(tb) > 0) {
-      tb <- tb |> 
+      tb <- tb |>
         dplyr::select(-any_of(c("extract_data_hash", "extract_data_path",
-                                "data_type", "data_scale"))) |> 
-        left_join(data_hashes, by = c("domain_name" = "domain_name")) 
+                                "data_type", "data_scale"))) |>
+        left_join(data_hashes, by = c("domain_name" = "domain_name"))
     } else {
     tb <- data_hashes
     }
@@ -524,7 +533,7 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
     db_sum_tbl <- paste0(method, "_", scale, "_sum")
   ## }
   ## con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  ## tbls <- dbListTables(con) 
+  ## tbls <- dbListTables(con)
   ## if (scale == "reef") {
   ##   db_sum_tbl <- paste0(method, "_sum")
   ## } else {
@@ -532,10 +541,10 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
   ## }
   ## if (db_sum_tbl %in% tbls) {
   ##   tb <- tbl(con, db_sum_tbl) |>
-  ##     collect() |> 
+  ##     collect() |>
   ##     dplyr::select(-any_of(c("extract_data_hash", "extract_data_path",
-  ##                             "data_type", "data_scale"))) |> 
-  ##     left_join(data_hashes, by = c("domain_name" = "domain_name")) 
+  ##                             "data_type", "data_scale"))) |>
+  ##     left_join(data_hashes, by = c("domain_name" = "domain_name"))
   ## } else {
   ##   tb <- data_hashes
   ## }
@@ -547,7 +556,7 @@ update_db_summary_tables <- function(method, scale, domain = NULL) {
 
 does_db_table_exist <- function(tbl_name) {
   con <- dbConnect(RSQLite::SQLite(), config_$db_path)
-  tbls <- dbListTables(con) 
+  tbls <- dbListTables(con)
   dbDisconnect(con)
   return (tbl_name %in% tbls)
 }
@@ -570,7 +579,7 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
                                ifelse(is.null(domain_str), "[^_]*", paste0("(",paste0(domain_str, collapse = "|"), ")")),
                                "\\.rds$"))
   ## write.csv(fls_wch, file = "../data/temp2.csv")
-  models <- tibble(path = unique(fls[fls_wch])) |> 
+  models <- tibble(path = unique(fls[fls_wch])) |>
     mutate(mod = map(.x = path,
                      .f = ~ {
                        ss <- readRDS(.x)$label |>
@@ -593,11 +602,11 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
                                 reef_model_data_hash = "",
                                 sector_model_data_hash = "",
                                 nrm_model_data_hash = "",
-                                selected_flag = selected_flag) |> 
+                                selected_flag = selected_flag) |>
                          as.data.frame()
                      })) |>
     unnest(c(mod)) |>
-    ## dplyr::rename(model_path = path) |> 
+    ## dplyr::rename(model_path = path) |>
     mutate(data_scale = ifelse(data_scale == "Sectors", "sector", data_scale))
   models
 }
@@ -610,7 +619,7 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ## pp <- data_hash |> filter(data_type == "manta", data_scale == "reef", domain_name == "12068S") |> as.data.frame() |> head()
   ## print(pp)
   ## if models database table does not exist, make it
-  
+
   if (!does_db_table_exist("models")) {
     models_db <- update_db_models()
   }
@@ -624,13 +633,13 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ##                            scale = scale,
   ##                            domain = domain)))
   ## alert(colnames(get_db_model_data()))
-  models_db <- get_db_model_data() |> 
+  models_db <- get_db_model_data() |>
     ## remove the focal domains
     filter(!(data_type == method &
            data_scale == scale &
-           ## str_detect(domain_name, domain_str))) |> 
-           domain_name %in% domain)) |> 
-    mutate(model_date = as.POSIXct(model_date)) |> 
+           ## str_detect(domain_name, domain_str))) |>
+           domain_name %in% domain)) |>
+    mutate(model_date = as.POSIXct(model_date)) |>
     rbind(scan_models_folder(method = method,
                              scale = scale,
                              domain = domain))
@@ -644,7 +653,7 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
   ## check to make sure they are the correct class before joining.
   tb <- tb |>
     mutate(data_scale =  as.character(data_scale))
-  
+
   ## alert(head(models_db))
   ## alert(models_db |> filter(data_type == "juveniles"))
   ## alert(class(models_db$data_scale))
@@ -657,14 +666,14 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
               by = c("data_type", "data_scale", "domain_name"))
   ## join in data_hash, to update the models database
   ## for the focal domain, there will be a two x_model_data_hash values
-  ## (the old: .x,  and the new: .y) - always use the .y 
+  ## (the old: .x,  and the new: .y) - always use the .y
   models_db <-
     models_db |>
     full_join(data_hash |> dplyr::select(-path),
               by = c("data_type", "data_scale", "domain_name")) |>
     (\(df) df |>
            mutate(across(ends_with(".x"), ~ coalesce(df[[sub(".x", ".y", cur_column())]], .),
-                         .names = "{col}")))() |> 
+                         .names = "{col}")))() |>
                                            select(-ends_with(".y")) |>
                                            rename_with(~ sub("\\.x", "", .), ends_with(".x"))
 
@@ -702,7 +711,7 @@ which_models_to_update <- function(method, scale, all = FALSE) {
     if(nrow(models_db) == 0) {
       domains <- data_hash |>
         pull(domain_name) |>
-        c(all_domains) |> 
+        c(all_domains) |>
         unique()
     } else {
       ## get the domains that were modelled with the current data (dont require remodelling)
@@ -712,7 +721,7 @@ which_models_to_update <- function(method, scale, all = FALSE) {
                   by = c("data_type", "data_scale", "domain_name")) |>
         mutate(across(ends_with(".x"), ~ . == get(sub(".x", ".y", cur_column())),
                       .names = "flag")) |>
-        mutate(flag = ifelse(is.na(flag), FALSE, flag)) |> 
+        mutate(flag = ifelse(is.na(flag), FALSE, flag)) |>
         filter(flag & !is.na(model_date)) |>
         pull(domain_name) |>
         unique()
@@ -723,5 +732,5 @@ which_models_to_update <- function(method, scale, all = FALSE) {
       }
     }
   }
-  domains  
+  domains
 }
