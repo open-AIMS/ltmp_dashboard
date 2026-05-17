@@ -20,8 +20,8 @@ args = c(
   "--method=fish",
   "--domain=No Name Reef",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 args = c(
   "R",
@@ -31,8 +31,8 @@ args = c(
   "--method=fish",
   "--domain=Helix Reef",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 args = c(
   "R",
@@ -43,8 +43,8 @@ args = c(
   "--domain=Helix Reef",
   "--scale=reef",
   "--display_log=false",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 
 args = c(
@@ -55,8 +55,8 @@ args = c(
   "--method=manta",
   "--domain=JUKES REEF",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 
 
@@ -79,7 +79,7 @@ dat <- data
 
 sub_var <- dat$sub_variable[[1]]
 posts <- dat$posteriors[[1]]$year_sum
-raw <- dat$raw_sum[[1]] |> 
+raw <- dat$raw_sum[[1]] |>
   mutate(Mean = ifelse(sub_var == "Biomass", Mean_biomass, Mean))
 
 ## Photo-transect ------
@@ -92,8 +92,8 @@ args = c(
   "--method=photo-transect",
   "--domain=Middle Island",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 args = c(
   "R",
@@ -103,8 +103,8 @@ args = c(
   "--method=photo-transect",
   "--domain=Rib Reef",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 
 ## args = c(
@@ -116,8 +116,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Burdekin",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -128,8 +128,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Mackay Whitsunday",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -140,8 +140,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Burnett Mary",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 
@@ -153,8 +153,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Barren Island",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 
@@ -166,8 +166,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Havannah Island",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 
@@ -179,8 +179,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Hayman Island",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -191,8 +191,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Centipede Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -203,8 +203,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Pandora Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -215,8 +215,8 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=Wet Tropics",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -227,11 +227,37 @@ args = c(
 ##   "--method=photo-transect",
 ##   "--domain=CA",
 ##   "--scale=Sectors",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## Manta ---------------
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=manta_cover.R",                            ##the name of the target script
+##   "--path=/data/manta/2021-01-14/process/ALL/2024/ALL/reef/10351S/raw/reef_data.zip",
+##   "--method=manta",
+##   "--domain=10351S",
+##   "--scale=reef",
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false",                           ##whether to refresh all the data
+##   "--data_path=/data/",
+##   "--output_path=/output/"
+## )
+## args = c(
+##   "R",
+##   "Rscript",
+##   "--file=manta_cover.R",                            ##the name of the target script
+##   "--path=/data/manta/2021-01-14/process/ALL/2024/Cape York/nrm/Cape York/raw/reef_data.zip",
+##   "--method=manta",
+##   "--domain=Cape York",
+##   "--scale=nrm",
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false",                           ##whether to refresh all the data
+##   "--data_path=/data/",
+##   "--output_path=/output/"
+## )
 ## args = c(
 ##   "R",
 ##   "Rscript",
@@ -240,8 +266,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=Bowden Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -251,8 +277,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=Carter Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -262,8 +288,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=Briggs Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -273,8 +299,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=Reef 22-084",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -284,8 +310,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=CL",
 ##   "--scale=Sectors",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -295,8 +321,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=CG",
 ##   "--scale=Sectors",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -307,8 +333,8 @@ args = c(
 ##   "--method=manta",
 ##   "--domain=Fitzroy",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## Juvenile ------------
@@ -320,8 +346,8 @@ args = c(
 ##   "--method=juvenile",
 ##   "--domain=Snapper Island",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -331,8 +357,8 @@ args = c(
 ##   "--method=juvenile",
 ##   "--domain=Wet Tropics",
 ##   "--scale=nrm",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## fish
@@ -345,8 +371,8 @@ args = c(
 ##   "--method=fish",
 ##   "--domain=Ribb Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -357,8 +383,8 @@ args = c(
 ##   "--method=fish",
 ##   "--domain=Carter Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -369,8 +395,8 @@ args = c(
 ##   "--method=fish",
 ##   "--domain=Centipede Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 ## args = c(
@@ -381,8 +407,8 @@ args = c(
 ##   "--method=fish",
 ##   "--domain=Erskine Island",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 ## args = c(
 ##   "R",
@@ -392,8 +418,8 @@ args = c(
 ##   "--method=fish",
 ##   "--domain=No Name Reef",
 ##   "--scale=reef",
-##   "--status=true",                                  ##whether to show full status 
-##   "--refresh_data=false"                            ##whether to refresh all the data 
+##   "--status=true",                                  ##whether to show full status
+##   "--refresh_data=false"                            ##whether to refresh all the data
 ## )
 
 args = c(
@@ -404,8 +430,8 @@ args = c(
   "--method=juveniles",
   "--domain=CA",
   "--scale=Sectors",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 
 args = c(
@@ -416,8 +442,8 @@ args = c(
   "--method=juveniles",
   "--domain=Centipede Reef",
   "--scale=reef",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
 
 args = c(
@@ -428,7 +454,6 @@ args = c(
   "--method=juveniles",
   "--domain=Burdekin",
   "--scale=nrm",
-  "--status=true",                                  ##whether to show full status 
-  "--refresh_data=false"                            ##whether to refresh all the data 
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
 )
-

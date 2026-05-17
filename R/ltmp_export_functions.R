@@ -1,5 +1,3 @@
-
-
 ltmp_prepare_export <- function(dat, model_lookup) {
   status::status_try_catch(
   {
@@ -12,11 +10,11 @@ ltmp_prepare_export <- function(dat, model_lookup) {
                               model_response, .units = ylab) |>
                 distinct(),
                 by = c("VARIABLE", "model_type", "model_response")
-                ) |> 
-      dplyr::filter(selected) |> 
+                ) |>
+      dplyr::filter(selected) |>
       dplyr::select(VARIABLE, model_response, posteriors, .units, splits,
                     model_type, sub_model) |>
-      ## add the exports 
+      ## add the exports
       mutate(
         exports = pmap(
           .l = list(posteriors, .units, splits, VARIABLE,
@@ -32,20 +30,20 @@ ltmp_prepare_export <- function(dat, model_lookup) {
             year_sum <- ltmp__prepare_export_year_sum(posteriors,
                                           .units, splits,
                                           VARIABLE, model_type,
-                                          sub_model) 
+                                          sub_model)
             ## year_posteriors and year_group_posteriors
             year_posteriors <- ltmp__prepare_export_year_posteriors(posteriors,
                                           .units, splits,
                                           VARIABLE, model_type,
-                                          sub_model) 
+                                          sub_model)
             ## yearcomp_sum
             yearcomp_sum <- ltmp__prepare_export_yearcomp_sum(posteriors, .units, splits,
                                               VARIABLE, model_type, sub_model)
-            ## yearcomp_posteriors 
+            ## yearcomp_posteriors
             yearcomp_posteriors <- ltmp__prepare_export_yearcomp_posteriors(posteriors,
                                           .units, splits,
                                           VARIABLE, model_type,
-                                          sub_model) 
+                                          sub_model)
             return(tibble(year_sum = list(year_sum),
                           year_posteriors = list(year_posteriors),
                           yearcomp_sum = list(yearcomp_sum),
@@ -53,7 +51,7 @@ ltmp_prepare_export <- function(dat, model_lookup) {
                    )
           }
         )) |>
-      ungroup() |> 
+      ungroup() |>
       dplyr::select(exports) |>
       unnest(exports) |>
       summarise(across(everything(), ~ list(bind_rows(flatten(.x)))))
@@ -69,7 +67,7 @@ ltmp_prepare_export <- function(dat, model_lookup) {
 
 ## ltmp__prepare_export <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
 ##   export_year_sum <- ltmp__prepare_export(posteriors, .units, splits,
-##                                           VARIABLE, model_type, sub_model) 
+##                                           VARIABLE, model_type, sub_model)
 
 ##   ## export <- posteriors$year_sum |>
 ##   ##   mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
@@ -80,9 +78,9 @@ ltmp_prepare_export <- function(dat, model_lookup) {
 ##   ## }
 ##   ## export <- export |>
 ##   ##   mutate(splits = splits) |>
-##   ##   mutate(VARIABLE = VARIABLE) |> 
+##   ##   mutate(VARIABLE = VARIABLE) |>
 ##   ##   separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
-##   ##            sep = "_") |> 
+##   ##            sep = "_") |>
 ##   ##   mutate(
 ##   ##     DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
 ##   ##     DOMAIN_NAME = status::get_setting(element = "domain_name"),
@@ -95,10 +93,10 @@ ltmp_prepare_export <- function(dat, model_lookup) {
 ##   ##                 DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
 ##   ##                 REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
 ##   ##                 VARIABLE, SUB_MODEL,
-##   ##                 mean, median, lower, upper) |> 
-##   ##   filter(!is.na(median)) |> 
+##   ##                 mean, median, lower, upper) |>
+##   ##   filter(!is.na(median)) |>
 ##   ##   droplevels()
-##  return(export_year_sum = export_year_sum) 
+##  return(export_year_sum = export_year_sum)
 ## }
 
 ltmp__prepare_export_year_sum <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
@@ -111,9 +109,9 @@ ltmp__prepare_export_year_sum <- function(posteriors, .units, splits, VARIABLE, 
   }
   export <- export |>
     mutate(splits = splits) |>
-    mutate(VARIABLE = VARIABLE) |> 
+    mutate(VARIABLE = VARIABLE) |>
     separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
-             sep = "_") |> 
+             sep = "_") |>
     mutate(
       DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
       DOMAIN_NAME = status::get_setting(element = "domain_name"),
@@ -126,10 +124,10 @@ ltmp__prepare_export_year_sum <- function(posteriors, .units, splits, VARIABLE, 
                   DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
                   REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
-                  mean, median, lower, upper) |> 
-    filter(!is.na(median)) |> 
+                  mean, median, lower, upper) |>
+    filter(!is.na(median)) |>
     droplevels()
- return(export) 
+ return(export)
 }
 
 ltmp__prepare_export_year_posteriors <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
@@ -147,9 +145,9 @@ ltmp__prepare_export_year_posteriors <- function(posteriors, .units, splits, VAR
   }
   export <- export |>
     mutate(splits = splits) |>
-    mutate(VARIABLE = VARIABLE) |> 
+    mutate(VARIABLE = VARIABLE) |>
     separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
-             sep = "_") |> 
+             sep = "_") |>
     mutate(
       DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
       DOMAIN_NAME = status::get_setting(element = "domain_name"),
@@ -162,38 +160,68 @@ ltmp__prepare_export_year_posteriors <- function(posteriors, .units, splits, VAR
                   DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
                   REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
-                  .draw, value) 
- return(export) 
+                  .draw, value)
+ return(export)
 }
 
 ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
-  export <- posteriors$yearcomp_sum |>
-    mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
-  export <- export |>
-    mutate(splits = splits) |>
-    mutate(VARIABLE = VARIABLE) |> 
-    separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
-             sep = "_") |> 
-    mutate(
-      DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
-      DOMAIN_NAME = status::get_setting(element = "domain_name"),
-      DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
-      DATA_TYPE = model_type,
-      DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
-      UNITS = ifelse(variable == "value", "absolute change", "fold change"),
-      SUB_MODEL = sub_model) |>
-    dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
-                  DATA_METHOD, DATA_TYPE, UNITS,
-                  ## REPORT_YEAR, DATE,
-                  ## REEFPAGE_CATEGORY=fGROUP,
-                  REEF_ZONE, DEPTH, SHELF,
-                  VARIABLE, SUB_MODEL,
-                  UNITS,
-                  YearComp,
-                  mean, median, lower, upper) |> 
-    filter(!is.na(median)) |> 
-    droplevels()
- return(export) 
+  if (is.null(posteriors$yearcomp_sum)) {  # if there was only a single year (and thus no comparisons)
+    export <- posteriors$year_sum |>
+      mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
+    export <- export |>
+      mutate(splits = splits) |>
+      mutate(VARIABLE = VARIABLE) |>
+      separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
+        sep = "_") |>
+      mutate(
+        DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
+        DOMAIN_NAME = status::get_setting(element = "domain_name"),
+        DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
+        DATA_TYPE = model_type,
+        DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
+        SUB_MODEL = sub_model) |>
+      crossing(UNITS = c("absolute change", "fold change")) |>
+      mutate(YearComp = NA, mean = NA, median = NA, lower = NA, upper = NA) |>
+      dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
+        DATA_METHOD, DATA_TYPE, UNITS,
+        ## REPORT_YEAR, DATE,
+        ## REEFPAGE_CATEGORY=fGROUP,
+        REEF_ZONE, DEPTH, SHELF,
+        VARIABLE, SUB_MODEL,
+        UNITS,
+        YearComp,
+        mean, median, lower, upper) |>
+      filter(!is.na(median)) |>
+      droplevels()
+  } else {
+    export <- posteriors$yearcomp_sum |>
+      mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
+    export <- export |>
+      mutate(splits = splits) |>
+      mutate(VARIABLE = VARIABLE) |>
+      separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
+        sep = "_") |>
+      mutate(
+        DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
+        DOMAIN_NAME = status::get_setting(element = "domain_name"),
+        DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
+        DATA_TYPE = model_type,
+        DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
+        UNITS = ifelse(variable == "value", "absolute change", "fold change"),
+        SUB_MODEL = sub_model) |>
+      dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
+        DATA_METHOD, DATA_TYPE, UNITS,
+        ## REPORT_YEAR, DATE,
+        ## REEFPAGE_CATEGORY=fGROUP,
+        REEF_ZONE, DEPTH, SHELF,
+        VARIABLE, SUB_MODEL,
+        UNITS,
+        YearComp,
+        mean, median, lower, upper) |>
+      filter(!is.na(median)) |>
+      droplevels()
+  }
+  return(export)
 }
 
 ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits, VARIABLE, model_type, sub_model) {
@@ -203,9 +231,9 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
     mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
   export <- export |>
     mutate(splits = splits) |>
-    mutate(VARIABLE = VARIABLE) |> 
+    mutate(VARIABLE = VARIABLE) |>
     separate(splits, into = c("REEF_ZONE", "DEPTH", "SHELF", "JUNK"),
-             sep = "_") |> 
+             sep = "_") |>
     mutate(
       DOMAIN_CATEGORY = status::get_setting(element = "data_scale"),
       DOMAIN_NAME = status::get_setting(element = "domain_name"),
@@ -221,8 +249,8 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
                   REEF_ZONE, DEPTH, SHELF,
                   VARIABLE, SUB_MODEL,
                   YearComp,
-                  .draw, value, frac) 
-  return(export) 
+                  .draw, value, frac)
+  return(export)
 }
 
 

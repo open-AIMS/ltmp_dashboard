@@ -1,6 +1,7 @@
 library(tidyverse)
 args <- commandArgs()
 
+cat(paste("process_db_extract\n============"), "\n\n")
 cat(paste(capture.output(args), collapse = "\n"), "\n\n")
 
 
@@ -30,10 +31,25 @@ if(has_csv_argument) {
   csv_path <- dirname(csv_file)
   filenm <- basename(csv_file)
   make_log <- paste0(csv_path, "/process.log")
+  cat(paste("csv path:", csv_path), "\n")
+  cat(paste("csv file:", csv_file), "\n")
+  cat(paste("process log file:", make_log), "\n")
+  rds_path <- csv_path
 }
-cat(paste("csv path:", csv_path), "\n")
-cat(paste("csv file:", csv_file), "\n")
-cat(paste("process log file:", make_log), "\n")
+
+has_rds_argument <- any(grepl("--rds_file=.*", args, perl = TRUE))
+if(has_rds_argument) {
+  arg <- args[grep("--rds_file=.*", args)]
+  rds_file <- gsub("--rds_file=(.)", "\\1", arg)
+  rds_path <- dirname(rds_file)
+  ## if (purpose == "make_regions") rds_file <- paste0(rds_path, "/manta.rds")
+  make_log <- paste0(rds_path, "/", purpose, ".log")
+  cat(paste("rds file:", rds_file), "\n")
+  cat(paste("rds path:", rds_path), "\n")
+  cat(paste("getwd:", getwd()), "\n")
+  cat(paste0(purpose, " log file:", make_log), "\n")
+}
+
 
 ## has_rds_argument <- any(grepl("--rds_file=.*", args, perl = TRUE))
 ## if(has_rds_argument) {
@@ -85,7 +101,6 @@ if (data_type == "photo-transect" & purpose == "post-process") {
   cat("Done!\n")
 }
 
-if (1 == 2) {
 
 if (data_type == "photo-transect" & purpose == "make_reefs") {
   cat("Start preparing reefs for modelling\n=============================================\n")
@@ -285,7 +300,6 @@ if (data_type == "photo-transect" & purpose == "make_sectors") {
 }
 
 
- }
 ## Juveniles
 
 if (data_type == "juveniles" & purpose == "post-process") {
@@ -316,8 +330,6 @@ if (data_type == "juveniles" & purpose == "post-process") {
   cat("Done!\n")
 }
 
-
-if (1 == 2) {
 
 if (data_type == "juveniles" & purpose == "make_reefs") {
   cat("Start preparing reefs for modelling\n=============================================\n")
@@ -523,7 +535,7 @@ if (data_type == "juveniles" & purpose == "make_sectors") {
   cat("Done!\n")
 }
 
-}
+
 ## manta
 
 if (data_type == "manta" & purpose == "post-process") {
@@ -549,8 +561,6 @@ if (data_type == "manta" & purpose == "post-process") {
   ## options(width = 80)
   cat("Done!\n")
 }
-
-if (1 == 2) {
 
 if (data_type == "manta" & purpose == "make_reefs") {
   cat("Start preparing reefs for modelling\n=============================================\n")
@@ -754,7 +764,6 @@ if (data_type == "manta" & purpose == "make_sectors") {
   cat("Done!\n")
 }
 
-  }
 ## fish
 
 if (data_type == "fish" & purpose == "post-process") {
@@ -806,9 +815,6 @@ if (data_type == "fish" & purpose == "post-process") {
   ## options(width = 80)
   cat("Done!\n")
 }
-
-
-if (1 == 2) {
 
 if (data_type == "fish" & purpose == "make_reefs") {
   cat("Start preparing reefs for modelling\n=============================================\n")
@@ -1026,7 +1032,79 @@ if (data_type == "fish" & purpose == "make_sectors") {
         })
   cat("Done!\n")
 }
+
+## annual report
+
+## Unlike the others above, for the annual report, I will just put
+## all the data in one folder.  That way, if necessary, I can also fit a
+## whole of GBR model
+if (data_type == "annual_report" & purpose == "make_regions") {
+  cat("Start preparing Regions for modelling\n=============================================\n")
+  if (1 == 1) {
+    cat("Read in extracted data\n")
+    manta <- readRDS(file = paste0(rds_file))
+    cat("Nest data\n")
+    ## print(colnames(manta))
+    annual_report <- manta |>
+      #dplyr::rename(REGION = A_REGION) |>
+      group_by(Region) |>
+      nest() |>
+      mutate(data = map2(.x = data, .y = Region,
+                         .f = ~ .x |>
+                           mutate(Region = .y) |>
+                           mutate(LC_MID =  1) |> ## this is a fake replacement
+                           dplyr::select(P_CODE,
+                                         ID,
+                                         CRUISE_CODE,
+                                         REEF_NAME,
+                                         AIMS_REEF_NAME,
+                                         LATITUDE, LONGITUDE,
+                                         REPORT_YEAR,
+                                         SURVEY_DATE,
+                                         TOW_SEQ_NO,
+                                         LIVE_CORAL,
+                                         LC_MID,
+                                         SHELF)
+                         )) |>
+      mutate(path = map(.x = Region,
+                        .f =  ~ {
+                          paste0(rds_path, "/annual_report",
+                                 "/2021-01-14/process/ALL/2024/", .x, "/Regions/",
+                                 .x,
+                                 "/raw/")
+                        }
+                        ))  |>
+      mutate(system = map2(.x = Region, .y = path,
+                           .f =  ~ {
+                             .y <- gsub("\\.\\./\\.\\.", "", .y)
+                             paste0('docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript home/Project/R/00_main.R --path="', .y, 'reef_data.zip"  --method=annual_report --domain="', .x, '" --scale=Regions --status=true --refresh_data=false')
+                           }
+                           ))
+    cat("Save nested data\n")
+    saveRDS(annual_report, file = paste0(rds_path, '/annual_report.rds'))
+  }
+  cat("Write individual csv and zips\n")
+  annual_report <- readRDS(file = paste0(rds_path, '/annual_report.rds'))
+  ## print(pt_reefs$AIMS_REEF_NAME |> unique())
+  pwalk(.l = list(annual_report$data, annual_report$path),
+        .f =  ~ {
+          if (!dir.exists(.y)) dir.create(.y, recursive = TRUE)
+          write_csv(.x, file = paste0(.y, "reef_data.csv"))
+          ## system(paste0("chmod 777 '", .y, "reef_data.csv'"))
+          zip(zipfile = paste0(.y, "reef_data.zip"),
+              files = paste0(.y, "reef_data.csv"),
+              flags = "-r9X")
+          ## system(paste0("chmod 777 '", .y, "reef_data.zip'"))
+          print(.y)
+          write(.y, file = make_log, append = TRUE)
+          ## write(dir.exists(.y), file = make_log, append = TRUE)
+        })
+
+  ## create_db_summary_from_extract(config_$db_path,
+  ##   data_type = data_type,
+  ##   csv_file = paste0(config_$data_path, "annual_report.rds"))
+  ## cat("Done!\n")
+}
+
 ## restore umask
 system("umask 0022")
-
-}

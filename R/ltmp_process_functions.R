@@ -14,7 +14,7 @@ ltmp_load_data_pt <- function() {
   name_ = "Load photo-transect data",
   item_ = "load_data_pt"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_fill_gaps_pt <- function(dat) {
@@ -22,31 +22,31 @@ ltmp_fill_gaps_pt <- function(dat) {
   {
     data.1 <-
       dat |>
-      unite(Groups, c(GROUP_DESC, REEFPAGE_CATEGORY), 
+      unite(Groups, c(GROUP_DESC, REEFPAGE_CATEGORY),
             sep = "_", remove = TRUE) |>
-      group_by(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, 
-               SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, TRANSECT_NO, 
+      group_by(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE,
+               SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, TRANSECT_NO,
                REPORT_YEAR, SURVEY_DATE, Groups)  |>
       suppressMessages() |>
       suppressWarnings()
 
-    data.wide <- 
+    data.wide <-
       data.1 |>
       summarise(points=n()) |>
-      pivot_wider(names_from=Groups, 
-                  values_from = points, 
+      pivot_wider(names_from=Groups,
+                  values_from = points,
                   values_fill=0) |>
       suppressMessages() |>
       suppressWarnings()
 
-    data.filled <- 
+    data.filled <-
       data.wide |>
-      pivot_longer(!c(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, 
-                      SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, TRANSECT_NO, 
-                      REPORT_YEAR, SURVEY_DATE), 
+      pivot_longer(!c(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE,
+                      SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, TRANSECT_NO,
+                      REPORT_YEAR, SURVEY_DATE),
                    names_to="Groups", values_to="Points") |>
-      separate(Groups, into = c("GROUP_DESC", "REEFPAGE_CATEGORY"), 
-               sep = "_") |> 
+      separate(Groups, into = c("GROUP_DESC", "REEFPAGE_CATEGORY"),
+               sep = "_") |>
       ungroup() |>
       suppressMessages() |>
       suppressWarnings()
@@ -170,7 +170,7 @@ ltmp_assign_spatial_domain_nrm <- function(dat) {
 ltmp_assign_spatial_domain_bioregions <- function(dat) {
   load('../data/spatial/bioregions.RData')
   ## Only need to work on Reef-level average lat/longs
-  dat.sum <- 
+  dat.sum <-
     dat |>
     group_by(REEF) |>
     summarise(Longitude=mean(Longitude,na.rm=TRUE),
@@ -203,7 +203,7 @@ ltmp_assign_spatial_domain_bioregions <- function(dat) {
 ltmp_assign_spatial_domain_sectors <- function(dat) {
   load('../data/spatial/sectors.RData')
   ## Only need to work on Reef-level average lat/longs
-  dat.sum <- 
+  dat.sum <-
     dat |>
     group_by(REEF) |>
     summarise(Longitude=mean(Longitude,na.rm=TRUE),
@@ -266,10 +266,10 @@ ltmp_split_ma <- function(data) {
     data.hc.sc.a <- data |>
       mutate(Set=1)
     data.mac <- data |>
-      mutate(GROUP_DESC = 
-               ifelse(GROUP_DESC ==  "ALGAE" & 
-                      !REEFPAGE_CATEGORY %in% c("Turf algae", "Coralline algae"), 
-                      "MACROALGAE", GROUP_DESC)) |> 
+      mutate(GROUP_DESC =
+               ifelse(GROUP_DESC ==  "ALGAE" &
+                      !REEFPAGE_CATEGORY %in% c("Turf algae", "Coralline algae"),
+                      "MACROALGAE", GROUP_DESC)) |>
       mutate(Set = 2)
     data <- data.hc.sc.a |>
       bind_rows(data.mac)
@@ -279,7 +279,7 @@ ltmp_split_ma <- function(data) {
   name_ = "Split out macroalgae",
   item_ = "split_ma_pt"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_group_lookup_pt <- function(data) {
@@ -300,7 +300,7 @@ ltmp_group_lookup_pt <- function(data) {
   name_ = "Reference group lookup",
   item_ = "group_lookup_pt"
   )
-  return(lookup)  
+  return(lookup)
 }
 
 ltmp_reduce_groups_pt <- function(data) {
@@ -320,7 +320,7 @@ ltmp_reduce_groups_pt <- function(data) {
   name_ = "Reduce the groups",
   item_ = "reduce_groups_pt"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_process_points_pt <- function(data, data.spatial) {
@@ -339,7 +339,7 @@ ltmp_process_points_pt <- function(data, data.spatial) {
       dplyr::select(-matches("^GROUP_DESC$|^FAMILY$")) |>
       group_by(Set, REEF, SITE_NO, TRANSECT_NO, VARIABLE, REPORT_YEAR,
                fYEAR, DATE, fDEPTH, REEF_ZONE, fGROUP) |>
-      summarise(COUNT = sum(Points)) |> 
+      summarise(COUNT = sum(Points)) |>
       ungroup() |>
       group_by(Set, REEF, SITE_NO, TRANSECT_NO, REPORT_YEAR, fYEAR,
                DATE, fDEPTH, REEF_ZONE) |>
@@ -361,17 +361,21 @@ ltmp_process_points_pt <- function(data, data.spatial) {
   name_ = "Process points",
   item_ = "process_points_pt"
   )
-  return(data)  
-  
+  return(data)
+
 }
 
 ltmp_save_data_pt <- function(data) {
   status::status_try_catch(
   {
-  save(data,  file = paste0(DATA_PATH, "processed/", RDATA_FILE))
-  write_csv(data |> dplyr::select(-fYEAR),  file = paste0(DATA_PATH, "processed/", CSV_FILE))
-  if (status::get_setting(element = "data_from") == "AWS")
-    write_aws(file = paste0("processed_", CSV_FILE), catalog_file = TRUE)
+    fname <- paste0(paste(status_[[1]]$data_method$item,
+      status_[[1]]$data_scale$item,
+      status_[[1]]$domain_name$item, sep = "_"), ".rds")
+    saveRDS(data, file = paste0(DATA_PATH, "processed/", fname))
+    save(data,  file = paste0(DATA_PATH, "processed/", RDATA_FILE))
+    write_csv(data |> dplyr::select(-fYEAR),  file = paste0(DATA_PATH, "processed/", CSV_FILE))
+    if (status::get_setting(element = "data_from") == "AWS")
+      write_aws(file = paste0("processed_", CSV_FILE), catalog_file = TRUE)
   },
   stage_ = 3,
   order_ = 7,
@@ -398,7 +402,7 @@ ltmp_load_data_juv <- function() {
   name_ = "Load juvenile data",
   item_ = "load_data_juv"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_fill_gaps_juv <- function(dat) {
@@ -406,33 +410,33 @@ ltmp_fill_gaps_juv <- function(dat) {
   {
     data.1 <-
       dat |>
-      unite(Groups, c(REEFPAGE_CATEGORY), 
+      unite(Groups, c(REEFPAGE_CATEGORY),
             sep = "_", remove = TRUE) |>
-      group_by(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, 
-               SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT, 
-               REPORT_YEAR, SURVEY_DATE, Groups) |> 
+      group_by(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE,
+               SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT,
+               REPORT_YEAR, SURVEY_DATE, Groups) |>
       suppressMessages() |>
       suppressWarnings()
 
-    data.wide <- 
+    data.wide <-
       data.1 |>
       ## summarise(points=n()) |>
       summarise(ABUNDANCE=sum(ABUNDANCE)) |>
-      pivot_wider(names_from=Groups, 
-                  values_from = ABUNDANCE, 
-                  values_fill=0) |> 
+      pivot_wider(names_from=Groups,
+                  values_from = ABUNDANCE,
+                  values_fill=0) |>
       suppressMessages() |>
       suppressWarnings()
 
-    data.filled <- 
+    data.filled <-
       data.wide |>
-      pivot_longer(!c(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, 
-                      SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT, 
-                      REPORT_YEAR, SURVEY_DATE), 
+      pivot_longer(!c(P_CODE,  SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE,
+                      SITE_DEPTH, LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT,
+                      REPORT_YEAR, SURVEY_DATE),
                    names_to="Groups", values_to="ABUNDANCE") |>
-      separate(Groups, into = c("REEFPAGE_CATEGORY"), 
-               sep = "_") |> 
-      ungroup() |> 
+      separate(Groups, into = c("REEFPAGE_CATEGORY"),
+               sep = "_") |>
+      ungroup() |>
       suppressMessages() |>
       suppressWarnings()
     data.filled
@@ -462,7 +466,7 @@ ltmp_group_lookup_juv <- function(data) {
   name_ = "Reference group lookup",
   item_ = "group_lookup_juv"
   )
-  return(lookup)  
+  return(lookup)
 }
 
 ltmp_reduce_groups_juv <- function(data, lookup) {
@@ -478,10 +482,10 @@ ltmp_reduce_groups_juv <- function(data, lookup) {
     if (status::get_setting(element = "data_scale") != 'reef')
       data <- data |> mutate(fGROUP=NA)
     ## Ensure that there is only a single entry per fGROUP pear site/year
-    data <- data |> 
+    data <- data |>
       group_by(P_CODE, SECTOR, SHELF, REEF_NAME, REEF, REEF_ZONE, SITE_DEPTH,
                LATITUDE, LONGITUDE, SITE_NO, AVAILABLE_SUBSTRATE, AREA_TRANSECT, REPORT_YEAR,
-               SURVEY_DATE, fGROUP) |> 
+               SURVEY_DATE, fGROUP) |>
       summarise(ABUNDANCE = sum(ABUNDANCE)) |>
       ungroup()
   },
@@ -490,7 +494,7 @@ ltmp_reduce_groups_juv <- function(data, lookup) {
   name_ = "Reduce the groups",
   item_ = "reduce_groups_juv"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_process_points_juv <- function(data, data.spatial) {
@@ -511,7 +515,7 @@ ltmp_process_points_juv <- function(data, data.spatial) {
               dplyr::select(-Latitude,-Longitude)) |>
     mutate(ZONE_DEPTH = interaction(REEF_ZONE, fDEPTH),
            SITE = factor(interaction(SITE_NO, REEF_ZONE, fDEPTH))) |>
-    filter(!is.na(AVAILABLE_SUBSTRATE)) |> 
+    filter(!is.na(AVAILABLE_SUBSTRATE)) |>
     suppressMessages() |>
     suppressWarnings()
   },
@@ -520,8 +524,8 @@ ltmp_process_points_juv <- function(data, data.spatial) {
   name_ = "Process points",
   item_ = "process_points_juv"
   )
-  return(data)  
-  
+  return(data)
+
 }
 
 ## Manta specific functions
@@ -540,7 +544,7 @@ ltmp_load_data_manta <- function() {
   name_ = "Load manta data",
   item_ = "load_data_manta"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_process_tows_manta <- function(data, data.spatial) {
@@ -575,8 +579,8 @@ ltmp_process_tows_manta <- function(data, data.spatial) {
   name_ = "Process tows",
   item_ = "process_tows_manta"
   )
-  return(data)  
-  
+  return(data)
+
 }
 
 #######################################################################
@@ -621,7 +625,7 @@ ltmp_load_data_fish <- function() {
   name_ = "Load fish data",
   item_ = "load_data_fish"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_calc_density_fish <- function(data) {
@@ -654,7 +658,7 @@ ltmp_calc_density_fish <- function(data) {
       ## filter(ABUNDANCE>0) |>      #remove the taxa that have ABUNDANCE==0
       left_join(trophic_groups,
                 by = c("FAMILY", "FISH_CODE", "GENUS")) |>
-      dplyr::rename(Trophic = Dashboard_trophic) |> 
+      dplyr::rename(Trophic = Dashboard_trophic) |>
       left_join(densities,
                 by = "FISH_CODE") |>
       mutate(AREA = ifelse(is.na(AREA), 4, AREA),
@@ -671,7 +675,7 @@ ltmp_calc_density_fish <- function(data) {
   name_ = "Calculate density",
   item_ = "calc_density_fish"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_old_new_fish <- function(data) {
@@ -684,7 +688,7 @@ ltmp_old_new_fish <- function(data) {
     ## data <- data |>
     ##   mutate(OLD_FISH = ifelse(FISH_CODE %in% old_fish_codes, TRUE, FALSE))
     data_old <- data |>
-      filter(`Dashboard species list` == "restricted") |> 
+      filter(`Dashboard species list` == "restricted") |>
       ## filter(OLD_FISH) |>
       mutate(fish_sub = "restricted") |>
       ## dplyr::select(-OLD_FISH)
@@ -701,7 +705,7 @@ ltmp_old_new_fish <- function(data) {
   name_ = "Distinguish old/new fish",
   item_ = "old_new_fish"
   )
-  return(data)  
+  return(data)
 }
 
 ltmp_lookup_sizes_fish <- function(data) {
@@ -728,7 +732,7 @@ ltmp_lookup_sizes_fish <- function(data) {
       summarise(Sum = sum(ABUNDANCE, na.rm = TRUE), .groups = "keep") |>
       ungroup() |>
       group_by(Group, fish_sub) |>
-      arrange(-Sum) |> 
+      arrange(-Sum) |>
       ## group_by(Group) |>
       ## arrange(Group, fish_sub, -Sum)  |>
       mutate(Common = 1:n()) |>
@@ -741,7 +745,7 @@ ltmp_lookup_sizes_fish <- function(data) {
   name_ = "Reference lookup sizes",
   item_ = "lookup_sizes_fish"
   )
-  return(lookup_sizes)  
+  return(lookup_sizes)
 }
 
 ltmp_lookup_h_fish <- function(data) {
@@ -801,7 +805,7 @@ ltmp_lookup_h_fish <- function(data) {
   name_ = "Reference lookup herb/harv",
   item_ = "lookup_h_fish"
   )
-  return(lookup_h)  
+  return(lookup_h)
 }
 
 ltmp_process_sizes_fish <- function(data, lookup_sizes) {
@@ -833,7 +837,7 @@ ltmp_process_sizes_fish <- function(data, lookup_sizes) {
   name_ = "Process fish sizes",
   item_ = "process_sizes_fish"
   )
-  return(data_sum)  
+  return(data_sum)
 }
 
 ltmp_process_total_fish <- function(data, data_sum) {
@@ -858,7 +862,7 @@ ltmp_process_total_fish <- function(data, data_sum) {
   name_ = "Process total fish",
   item_ = "process_total_fish"
   )
-  return(data_sum)  
+  return(data_sum)
 }
 
 ltmp_process_h_fish <- function(data, lookup_h, data_sum) {
@@ -909,7 +913,7 @@ ltmp_process_h_fish <- function(data, lookup_h, data_sum) {
   name_ = "Process herb/harv fish",
   item_ = "process_h_fish"
   )
-  return(data_sum)  
+  return(data_sum)
 }
 
 ltmp_process_trout_fish <- function(data, data_sum) {
@@ -926,9 +930,9 @@ ltmp_process_trout_fish <- function(data, data_sum) {
                 ## filter(Trophic %in% c("Coral Trout", "Secondary targets"),
                 filter(Dashboard_harvested == "yes",
                        REPORT_YEAR>1996) |>    # CHECK THIS!!!
-                mutate(Group = ifelse(Dashboard_trout == "yes", "Coral Trout", "Secondary targets")) |> 
+                mutate(Group = ifelse(Dashboard_trout == "yes", "Coral Trout", "Secondary targets")) |>
                 droplevels() |>
-                mutate(fGROUP = FAMILY) |> 
+                mutate(fGROUP = FAMILY) |>
                 group_by(RAP_REEF_PAIR, REEF, RAP_OPEN_CLOSED, REEF_ZONE,
                          REPORT_YEAR, SURVEY_DATE, SITE_NO, TRANSECT_NO, Group, fGROUP) |>
                 summarize(ABUNDANCE = sum(ABUNDANCE, na.rm = TRUE),
@@ -936,16 +940,16 @@ ltmp_process_trout_fish <- function(data, data_sum) {
                           Biomass = sum(BIOMASS, na.rm = TRUE)/1000,   ## Express in kg rather than g to help the model
                           .groups = "keep"
                 ) |>
-                ungroup() |> 
+                ungroup() |>
                 mutate(fish_sub = "restricted")
-                ) 
+                )
   },
   stage_ = 3,
   order_ = 9,
   name_ = "Process trout fish",
   item_ = "process_trout_fish"
   )
-  return(data_sum)  
+  return(data_sum)
 }
 
 ltmp_process_fish <- function(data_sum, data_spatial) {
@@ -969,5 +973,5 @@ ltmp_process_fish <- function(data_sum, data_spatial) {
   name_ = "Process fish",
   item_ = "process_fish"
   )
-  return(data)  
+  return(data)
 }

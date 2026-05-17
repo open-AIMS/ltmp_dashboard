@@ -7,7 +7,7 @@
 ## calling sys.nframe() from a sourced script, then it will be 1       ##
 #########################################################################
 ltmp_is_parent <- function() {
-   ifelse(sys.nframe()==1, TRUE, FALSE) 
+   ifelse(sys.nframe()==1, TRUE, FALSE)
 }
 
 #########################################################################
@@ -20,13 +20,13 @@ ltmp_start_matter <- function(args = commandArgs()) {
     ## if (do_display) status::display_status_terminal()        ## display an opening banner
     ltmp_parse_cla(args)                    ## parse command line arguments
     if (do_display) status::display_status_terminal()        ## display an opening banner
-    if (status::get_setting("refresh_data")) ltmp_clear_data()
-    ltmp_generate_other_settings() 
-    ## ltmp_initialise_log()       ## create the log 
+    ## if (status::get_setting("refresh_data")) ltmp_clear_data()
+    if (status::get_setting("refresh_data")) print("hI")
+    ltmp_generate_other_settings()
+    ## ltmp_initialise_log()       ## create the log
     ltmp_config()
     ltmp_check_packages()
     ltmp_analysis_stage()
-
 }
 
 ltmp_initialise_status <- function() {
@@ -40,6 +40,7 @@ ltmp_initialise_status <- function() {
 }
 
 ltmp_parse_cla <- function(args) {
+  print(args)
   status::status_try_catch( {
     parent_file <- FALSE
     ## Generate a message outlining the necessary format of the command line arguments
@@ -69,7 +70,7 @@ ltmp_parse_cla <- function(args) {
     ## has been called, parse the command line
     if (parent_file) {
       ## does not contain iether a "--file=" or a "--sql"
-      if (!has_file_argument & !has_sql_argument) {  
+      if (!has_file_argument & !has_sql_argument) {
         stop(paste0("A bucket (location/path of raw data) needs ",
                     "to be provided as a command line argument,\n\t",
                     "such as: Rscript <script.R> --file=<PATH>\n\n",
@@ -80,8 +81,8 @@ ltmp_parse_cla <- function(args) {
       if (has_path_argument) {
         ## extract the file argument
         arg <- args[grep("--path=.*", args)]
-        arg <- gsub("'", "", arg) 
-        arg <- gsub("\"", "", arg) 
+        arg <- gsub("'", "", arg)
+        arg <- gsub("\"", "", arg)
         if (grepl('.*(\\.zip$|\\.csv$)',arg)) {  #if the commandline argument ends in a zip or csv
           FILENAME <- basename(arg)
           status::add_setting(element = "filename", item = FILENAME, name = "Filename")
@@ -155,11 +156,11 @@ ltmp_parse_cla <- function(args) {
       if (file.exists(log_file)) unlink(log_file)
       assign("log_file", log_file, envir = .GlobalEnv)
     } else {  ## if is AWS
-      log_file <- paste0(status::get_setting("status_dir"), "/", 
+      log_file <- paste0(status::get_setting("status_dir"), "/",
                          status::get_setting("log_file"))
       ## status::add_setting(element = "log_file", item = log_file, name = "Log filename")
       assign("log_file", log_file, envir = .GlobalEnv)
-      
+
     }
   },
   stage_ = 1,
@@ -176,14 +177,14 @@ get_params_from_cla <- function(args) {
     status::add_setting(element = "data_program",
                         item = gsub("--data_program=(.)", "\\1", arg),
                         name = "Data program")
-  } 
+  }
   has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
   if(has_method_argument) {
     arg <- args[grep("--method=.*", args)]
     status::add_setting(element = "data_method",
                         item = gsub("--method=(.)", "\\1", arg),
                         name = "Data type")
-  } 
+  }
   has_scale_argument <- any(grepl("--scale=.*", args, perl = TRUE))
   if(has_scale_argument) {
     arg <- args[grep("--scale=.*", args)]
@@ -194,10 +195,34 @@ get_params_from_cla <- function(args) {
   has_domain_argument <- any(grepl("--domain=.*", args, perl = TRUE))
   if(has_domain_argument) {
     arg <- args[grep("--domain=.*", args)]
-    arg <- gsub("'", "", arg) 
+    arg <- gsub("'", "", arg)
     status::add_setting(element = "domain_name",
                         item = gsub("--domain=(.)", "\\1", arg),
                         name = "Domain name")
+  }
+
+  has_data_path_argument <- any(grepl("--data_path=.*", args, perl = TRUE))
+  if(has_data_path_argument) {
+    arg <- args[grep("--data_path=.*", args)]
+    status::add_setting(element = "data_path",
+                        item = gsub("--data_path=(.)", "\\1", arg),
+                        name = "Data path")
+  } else {
+    status::add_setting(element = "data_path",
+                        item = "../data/",
+                        name = "Data path")
+  }
+
+  has_output_path_argument <- any(grepl("--output_path=.*", args, perl = TRUE))
+  if(has_output_path_argument) {
+    arg <- args[grep("--output_path=.*", args)]
+    status::add_setting(element = "output_path",
+                        item = gsub("--output_path=(.)", "\\1", arg),
+                        name = "Output path")
+  } else {
+    status::add_setting(element = "output_path",
+                        item = "../output/",
+                        name = "Output path")
   }
 
   has_display_argument <- any(grepl("--display_log=.*", args, perl = TRUE))
@@ -206,7 +231,7 @@ get_params_from_cla <- function(args) {
     ##                                          args,
     ##                                          perl = TRUE)), TRUE, FALSE)
     arg <- args[grep("--display_log=.*", args)]
-    arg <- gsub("'", "", arg) 
+    arg <- gsub("'", "", arg)
     arg <- ifelse(any(grepl('--display_log ?= ?(false|f|FALSE|F)', arg, perl = TRUE)), FALSE, TRUE)
     status::add_setting(element = "display_log",
                         item = arg,
@@ -234,23 +259,38 @@ get_params_from_cla <- function(args) {
 }
 
 ltmp_clear_data <- function() {
-   ## Clear the /data/primary folder
-  unlink("../data/primary/*.csv")
-  unlink("../data/primary/*.zip")
-  unlink("../data/primary/*.RData")
-  unlink("../data/primary/*.geojson")
-  unlink("../data/primary/*.json")
-  unlink("../data/primary/GIS/*.*", recursive = TRUE)
+  data_path <- status::get_setting("data_path")
+  ## Clear the /data/primary folder
+  unlink(paste0(data_path, "primary/*.csv"))
+  unlink(paste0(data_path, "primary/*.zip"))
+  unlink(paste0(data_path, "primary/*.RData"))
+  unlink(paste0(data_path, "primary/*.geojson"))
+  unlink(paste0(data_path, "primary/*.json"))
+  unlink(paste0(data_path, "primary/GIS/*.*"), recursive = TRUE)
+  unlink(paste0(data_path, "processed/*.*"), recursive = TRUE)
+  unlink(paste0(data_path, "modelled/*.*"), recursive = TRUE)
+  unlink(paste0(data_path, "summarised/*.*"), recursive = TRUE)
+  unlink(paste0(output_path, "figures/*.*"), recursive = TRUE)
+  unlink(paste0(data_path, "model_stage.RData"), recursive = TRUE)
+  unlink(paste0(data_path, "reefCloudPackage::analysis_stage.RData"))
 
-  unlink("../data/processed/*.*", recursive = TRUE)
-  unlink("../data/modelled/*.*", recursive = TRUE)
-  unlink("../data/summarised/*.*", recursive = TRUE)
+  ## old
 
-  unlink("../output/figures/*.*", recursive = TRUE)
+  ## unlink("../data/primary/*.zip")
+  ## unlink("../data/primary/*.RData")
+  ## unlink("../data/primary/*.geojson")
+  ## unlink("../data/primary/*.json")
+  ## unlink("../data/primary/GIS/*.*", recursive = TRUE)
 
-  unlink("../docs/Reports/*.html")
-  unlink("../data/model_stage.RData")
-  unlink("../data/reefCloudPackage::analysis_stage.RData")
+  ## unlink("../data/processed/*.*", recursive = TRUE)
+  ## unlink("../data/modelled/*.*", recursive = TRUE)
+  ## unlink("../data/summarised/*.*", recursive = TRUE)
+
+  ## unlink("../output/figures/*.*", recursive = TRUE)
+
+  ## unlink("../docs/Reports/*.html")
+  ## unlink("../data/model_stage.RData")
+  ## unlink("../data/reefCloudPackage::analysis_stage.RData")
 }
 
 ltmp_generate_other_settings <- function() {
@@ -258,22 +298,39 @@ ltmp_generate_other_settings <- function() {
   {
 
     ## Location of folder to store R data objects
-    assign("DATA_PATH", "../data/", envir = globalenv())
+    ## assign("DATA_PATH", "../data/", envir = globalenv())
+    data_path <- status::get_setting("data_path")
+    assign("DATA_PATH", data_path, envir = globalenv())
     if (!dir.exists(DATA_PATH)) dir.create(DATA_PATH)
     status::add_setting(element = "data_path", item = DATA_PATH, name = "Local data path")
+
+    output_path <- status::get_setting("output_path")
+    assign("OUTPUT_PATH", output_path, envir = globalenv())
+    if (!dir.exists(OUTPUT_PATH)) dir.create(OUTPUT_PATH)
+    status::add_setting(element = "output_path", item = OUTPUT_PATH, name = "Local output path")
 
     ## Define the name of the input benthic data
     assign("INPUT_DATA", "reef_data.zip", envir = globalenv())
     status::add_setting(element = "input_data", item = INPUT_DATA, name = "Input data")
 
     ## Working name for RData version of input data
-    assign("RDATA_FILE",  gsub('\\.csv|\\.zip','\\.RData', INPUT_DATA), envir = globalenv())
+    ## assign("RDATA_FILE",  gsub('\\.csv|\\.zip','\\.RData', INPUT_DATA), envir = globalenv())
+    assign("RDATA_FILE",
+      paste0("data_",
+        status::get_setting("data_method"),
+        "_",
+        status::get_setting("data_scale"),
+        "_",
+        status::get_setting("domain_name"),
+        ".RData"
+        ),
+      envir = globalenv())
     status::add_setting(element = "rdata_file", item = RDATA_FILE, name = "R data file")
 
     ## Working name for csv version of input data
     assign("CSV_FILE",  gsub('\\.csv|\\.zip','\\.csv', INPUT_DATA), envir = globalenv())
     status::add_setting(element = "csv_file", item = CSV_FILE, name = "csv file")
- 
+
   },
   stage_ = 1,
   order_ = 2,
@@ -290,10 +347,11 @@ ltmp_config <- function() {
     if (!dir.exists(paste0(DATA_PATH, '/processed'))) dir.create(paste0(DATA_PATH, '/processed'))
     if (!dir.exists(paste0(DATA_PATH, '/modelled'))) dir.create(paste0(DATA_PATH, '/modelled'))
     if (!dir.exists(paste0(DATA_PATH, '/summarised'))) dir.create(paste0(DATA_PATH, '/summarised'))
-    assign("OUTPUT_PATH", "../output/", envir = globalenv())
-    status::add_setting(element = "output_path", item = OUTPUT_PATH, name = "Output path")
+    ## assign("OUTPUT_PATH", "../output/", envir = globalenv())
+    ## status::add_setting(element = "output_path", item = OUTPUT_PATH, name = "Output path")
     if (!dir.exists(OUTPUT_PATH)) dir.create(OUTPUT_PATH)
-    assign("FIGURES_PATH", "../output/figures/", envir = globalenv())
+    ## assign("FIGURES_PATH", "../output/figures/", envir = globalenv())
+    assign("FIGURES_PATH", paste0(OUTPUT_PATH, "figures/"), envir = globalenv())
     if (!dir.exists(paste0(OUTPUT_PATH, 'figures'))) dir.create(paste0(OUTPUT_PATH, 'figures'))
     if (!dir.exists(paste0(OUTPUT_PATH, 'figures/spatial/'))) dir.create(paste0(OUTPUT_PATH, 'figures/spatial/'))
     if (!dir.exists(paste0(OUTPUT_PATH, 'tables/'))) dir.create(paste0(OUTPUT_PATH, 'tables/'))
@@ -340,7 +398,7 @@ ltmp_check_packages <- function() {
   name_ = "Load package dependencies",
   item_ = "load_packages"
   )
-  
+
 }
 
 ltmp_analysis_stage <- function() {
@@ -351,4 +409,3 @@ ltmp_analysis_stage <- function() {
     ##     save(ANALYSIS_STAGE, file=paste0(DATA_PATH, "analysis_stage.RData"))
     ## }
 }
-

@@ -16,6 +16,11 @@ for (s in  str_subset(status_$status[[3]]$items, "_pt$|_juv$"))
 #######################################################################
 data <- ltmp_load_data_manta()
 
+#######################################################################
+## Filter out any reefs that do not have a shelf listed              ##
+#######################################################################
+data <- data |> filter(!is.na(SHELF))
+
 ##################################################################################
 ## Determine the spatial domains (Region, NRM_region, Bioregion) for each reef   ##
 ## - aggregate the lat/longs to reef level                                       ##

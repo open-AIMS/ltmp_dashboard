@@ -1,3 +1,12 @@
+source("/export/project/monitoring-dashboard/dev/R/backend_functions.R")
+message("\nI have arrived in batch.R\n")
+
+## parent_dashboard_log <- "/export/project/monitoring-dashboard/log/dashboard_batch.log"
+parent_dashboard_log <- "/export/project/monitoring-dashboard/log/dashboard_batch.log"
+msg <- paste0("\t Inside of batch.R (", get_time(), ")")
+cat(paste0("\n", msg, "\n\t", paste(rep("-", nchar(msg)), collapse = ""), "\n"),
+  file = parent_dashboard_log, append = FALSE)
+
 ## setwd("~/dev/R")
 library(DBI)
 library(RSQLite)
@@ -7,7 +16,7 @@ library(digest)
 
 ## print(getwd())
 ## print(list.files())
-print(Sys.info()[["user"]])
+## print(Sys.info()[["user"]]
 
 ## The "messages" get directed to ~/dashboard/log/dashboard_error.log
 message(Sys.info()[["user"]])
@@ -39,29 +48,45 @@ message(paste0("Current working directory is:", getwd()))
 ##   "--log=../../data/dashboard.log"
 ##   )
 
+
+
+
 args <- commandArgs()
-print(args)
-cat(paste(capture.output(args), collapse = "\n"))
+## print(args)
+## cat(paste(capture.output(args), collapse = "\n"))
 message(paste(capture.output(args), collapse = "\n"))
+cat(paste0(paste("\n\t", capture.output(args), collapse = ""), "\n\n"),
+  file = parent_dashboard_log, append = TRUE)
+
 
 has_log_argument <- any(grepl("--log=.*", args, perl = TRUE))
 if(has_log_argument) {
   arg <- args[grep("--log=.*", args)]
   out_log_file <- gsub("--log=(.)", "\\1", arg)
+  message(paste0("out_log_file passed in args is:", out_log_file))
+  out_log_file_tmp <- gsub(".log$", "_tmp.log", out_log_file)
+  unlink(out_log_file)
+  unlink(out_log_file_tmp)
 }
-cat(paste0("Current working directory:", getwd()), "\n", file = out_log_file, append = TRUE)
-cat(paste0("Log file working directory:", out_log_file), "\n", file = out_log_file, append = TRUE)
+## cat(paste0("Current working directory:", getwd()), "\n", file = out_log_file, append = TRUE)
+## cat(paste0("Log file working directory:", out_log_file), "\n", file = out_log_file, append = TRUE)
+## cat(paste0("\tCurrent working directory:", getwd()), "\n",
+##   file = parent_dashboard_log, append = TRUE)
+cat(paste0("\tLog file: ", out_log_file), "\n\tNote, for model fits this will be a temporary template and will be changed once the actual condidate (reef, sector, nrm) is selected later\n",
+  file = parent_dashboard_log, append = TRUE)
+
 
 has_file_argument <- any(grepl("--file=.*", args, perl = TRUE))
 if(has_file_argument) {
   arg <- args[grep("--file=.*", args)]
   file <- gsub("--file=(.)", "\\1", arg)
-  cat(paste0("File:", file), "\n", file = out_log_file, append = TRUE)
+  cat(paste0("\tFile: ", file), "\n",
+    file = parent_dashboard_log, append = TRUE)
   setwd(dirname(file))
 } else stop("No --file= component provided")
 
 ## The following must remain here (e.g. after working directory has been set)
-source("backend_functions.R")
+## source("backend_functions.R")
 
 ## print(getwd())
 ## print(list.files())
@@ -79,7 +104,8 @@ if(has_method_argument) {
     data_type == "fish" ~ "fish",
     .default = NULL
     )
-  cat(paste0("Data type:", data_type), "\n", file = out_log_file, append = TRUE)
+  cat(paste0("\tData type: ", data_type), "\n",
+    file = parent_dashboard_log, append = TRUE)
 }
 
 has_scale_argument <- any(grepl("--scale=.*", args, perl = TRUE))
@@ -90,10 +116,12 @@ if(has_scale_argument) {
     data_scale == "reef" ~ "reefs",
     data_scale == "nrm" ~ "nrm",
     data_scale == "sector" ~ "sectors",
+    data_scale == "region" ~ "regions",
     .default = NULL
     )
 } else scale <- NULL
-cat(paste0("Data scale:", scale), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tData scale: ", scale), "\n",
+  file = parent_dashboard_log, append = TRUE)
 
 has_domain_argument <- any(grepl("--domain=.*", args, perl = TRUE))
 if(has_domain_argument) {
@@ -102,7 +130,8 @@ if(has_domain_argument) {
 } else {
   domain <- NULL
 }
-cat(paste0("Domain:", domain), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tDomain: ", domain), "\n",
+  file = parent_dashboard_log, append = TRUE)
 
 ## has_fit_argument <- any(grepl("--fit_model=.*", args, perl = TRUE))
 ## if(has_fit_argument) {
@@ -120,7 +149,8 @@ if(has_purpose_argument) {
     pluck(1) |>
     str_trim()
 } else purpose <- NULL
-cat(paste0("Batch purpose:", purpose), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tBatch purpose: ", purpose), "\n",
+  file = parent_dashboard_log, append = TRUE)
 
 
 has_sql_argument <- any(grepl("--sql_path=.*", args, perl = TRUE))
@@ -130,7 +160,9 @@ if(has_sql_argument) {
 } else {
   sql_path <- NULL
 }
-cat(paste0("SQL path:", sql_path), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tSQL path: ", sql_path), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
 
 has_data_argument <- any(grepl("--data_path=.*", args, perl = TRUE))
 if(has_data_argument) {
@@ -139,7 +171,34 @@ if(has_data_argument) {
 } else {
   data_path <- NULL
 }
-cat(paste0("Data path:", data_path), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tData path: ", data_path), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
+
+has_output_argument <- any(grepl("--output_path=.*", args, perl = TRUE))
+if(has_output_argument) {
+  arg <- args[grep("--output_path=.*", args)]
+  output_path <- gsub("--output_path=(.)", "\\1", arg)
+} else {
+  output_path <- NULL
+}
+cat(paste0("\tOutput path: ", output_path), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
+
+has_model_run_location_argument <- any(grepl("--model_run_location=.*", args, perl = TRUE))
+if(has_model_run_location_argument) {
+  arg <- args[grep("--model_run_location=.*", args)]
+  model_run_location <- gsub("--model_run_location=(.)", "\\1", arg)
+} else {
+  model_run_location <- "local"
+}
+cat(paste0("\tModel run location: ", model_run_location), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
+
+cat(paste0("\tData path: ", data_path), "\n",
+  file = parent_dashboard_log, append = TRUE)
 
 config_ <- list(
   data_path = data_path, #"../../data/",
@@ -148,10 +207,12 @@ config_ <- list(
   sql_file = paste0(sql_path, sql_file, ".sql"),
   model_path = paste0(data_path, "modelled/"), #"../../dev/data/modelled/",
   dashboard_log = out_log_file,
-  db_path = paste0(data_path, "dashboard.sqlite")
+  db_path = paste0(data_path, "dashboard.sqlite"),
+  model_run_location = model_run_location
   )
-cat(paste0("SQL file:", config_$sql_file), "\n", file = out_log_file, append = TRUE)
-cat(paste0("Internal db path:", config_$db_path), "\n", file = out_log_file, append = TRUE)
+## cat(paste0("SQL file:", config_$sql_file), "\n", file = out_log_file, append = TRUE)
+cat(paste0("\tInternal db path: ", config_$db_path), "\n",
+  file = parent_dashboard_log, append = TRUE)
 ## config_$db_path = paste0(config_$data_path, "dashboard.sqlite")
 ## message(paste0("Current working directory is:", getwd()))
 ## message(config_$dashboard_log)
@@ -159,12 +220,18 @@ cat(paste0("Internal db path:", config_$db_path), "\n", file = out_log_file, app
 
 
 if ("sql" %in% purpose) {  ## Extract from Oracle database
-  print("Start extraction")
-  cat("Start execution...", "\n\n", file = out_log_file, append = TRUE)
+  ## print("Start extraction")
+  cat("\t1. Start execution... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
   if (sql_file == "juv") {
+    cat("\t\t- Juveniles part 1 ...", "\n",
+      file = parent_dashboard_log, append = TRUE)
+    cat("Juveniles part 1 ...", "\n",
+      file = out_log_file_tmp, append = TRUE)
     sql_file1 <- gsub(".sql$", "_1.sql", config_$sql_file)
     data_file1 <- gsub(".csv$", "_1.csv", config_$data_file)
-    cat("data_file1:", data_file1, "\n", file = out_log_file, append = TRUE)
+    cat("\t\t\tdata_file1:", data_file1, "\n",
+      file = parent_dashboard_log, append = TRUE)
     system2("java",
             args = c("-jar",
                      "../dbExport.jar",
@@ -174,15 +241,22 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
                      data_file1,
                      "reef",
                      "reefmon",
-                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+                     paste0(">> '", out_log_file, "' 2>&1")),
             wait = TRUE,
             stderr = sub("dashboard.log$", "dashboard_error.log", config_$dashboard_log)
-            )
-    cat("", "\n", file = out_log_file, append = TRUE)
+    )
+    file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+    ## cat("", "\n", file = out_log_file, append = TRUE)
     ## sql_file2 <- paste0(sql_file,"_2")
     ## data_type2 <- paste0(data_type, "_2")
     sql_file2 <- gsub(".sql$", "_2.sql", config_$sql_file)
     data_file2 <- gsub(".csv$", "_2.csv", config_$data_file)
+    cat("\t\t- Juveniles part 2 ...(", get_time(), ")\n",
+      file = parent_dashboard_log, append = TRUE)
+    cat("\nJuveniles part 2 ...", "\n",
+      file = out_log_file_tmp, append = TRUE)
+    cat("\t\t\tdata_file2:", data_file2, "\n",
+      file = parent_dashboard_log, append = TRUE)
     system2("java",
             args = c("-jar",
                      "../dbExport.jar",
@@ -192,10 +266,14 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
                      data_file2,
                      "reef",
                      "reefmon",
-                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+                     paste0(">> '", out_log_file, "' 2>&1")),
+                     ## ),
             wait = TRUE,
+            ## stdout = con,
             stderr = sub("dashboard.log$", "dashboard_error.log", config_$dashboard_log)
-            )
+    )
+    file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+    file.copy(from = out_log_file_tmp, to = out_log_file, overwrite = TRUE)
     ## The following (as well as the sql's) was provided by Angus (although I have changed filenames)
     ##- add in zeros prior to any aggregation
     ## points <- read_csv(paste0("../../data/", data_type1, ".csv"))  |>
@@ -236,6 +314,12 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
     ## write_csv(juv_data, file = paste0("../../data/", data_type, ".csv"))
     write_csv(juv_data, file = paste0(config_$data_path, data_type, ".csv"))
   } else {
+    cat("\t\t- Photo-transect, Manta or Fish ...(", get_time(), ")\n",
+      file = parent_dashboard_log, append = TRUE)
+    cat("\nPhoto-transect, Manta or Fish ...(", get_time(), ")\n",
+      file = out_log_file_tmp, append = TRUE)
+    cat("\t\t\tdata_file:", config_$data_file, "\n",
+      file = parent_dashboard_log, append = TRUE)
     system2("java",
             args = c("-jar",
                      "../dbExport.jar",
@@ -245,22 +329,33 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
                      config_$data_file,
                      "reef",
                      "reefmon",
-                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+                     paste0(">> '", out_log_file, "' 2>&1")),
             wait = TRUE,
             stderr = sub("dashboard.log$", "dashboard_error.log", config_$dashboard_log)
             )
+    file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+    file.copy(from = out_log_file_tmp, to = out_log_file, overwrite = TRUE)
   }
-  print("Extraction complete")
-  print("Update databases")
+  ## cat("\tExecution complete...", "\n\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## print("Extraction complete")
+  ## print("Update databases")
+  cat("\t2. Update databases...(", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
   create_db_table_from_extract(config_$db_path,
                                data_type = data_type,
                                csv_file = config_$data_file)
   create_db_summary_from_extract(config_$db_path,
                                  data_type = data_type,
                                csv_file = config_$data_file)
-  print("Update databases complete")
+  ## cat("\tDatabase update complete...", "\n\n",
+  ##   file = parent_dashboard_log, append = TRUE)
   if (data_type == "fish") {
-    cat("Start execution of fish_codes...", "\n", file = out_log_file, append = TRUE)
+    cat("\t\t- Fish part 2 ...(", get_time(), ")\n",
+      file = parent_dashboard_log, append = TRUE)
+    cat("\nFish part 2 ...(", get_time(), ")\n",
+      file = out_log_file_tmp, append = TRUE)
+    ## cat("Start execution of fish_codes...", "\n", file = out_log_file, append = TRUE)
     system2("java",
             args = c("-jar",
                      "../dbExport.jar",
@@ -268,84 +363,160 @@ if ("sql" %in% purpose) {  ## Extract from Oracle database
                      shQuote(paste0(data_path, "fish_codes.csv")),
                      "reef",
                      "reefmon",
-                     paste0(">> ", config_$dashboard_log, " 2>&1")),
+                     paste0(">> '", out_log_file, "' 2>&1")),
             wait = TRUE,
             stderr = sub("dashboard.log$", "dashboard_error.log", config_$dashboard_log)
             )
+    file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+    file.copy(from = out_log_file_tmp, to = out_log_file, overwrite = TRUE)
   }
-  cat("Database extraction complete...", "\n", file = out_log_file, append = TRUE)
+  unlink(out_log_file_tmp)
+  cat("\tDatabase extraction complete...(", get_time(), ")\n",
+    file = parent_dashboard_log, append = TRUE)
 }
+
 
 if ("post-process" %in% purpose) { ## Run post-processing script
-  print("Start post-process")
-  cat("Start post-process...", "\n\n", file = out_log_file, append = TRUE)
+  cat("\t1. Start post-process... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+  ## cat("Start post-process...", "\n\n", file = out_log_file, append = TRUE)
   csv_file <- paste0(config_$data_path, data_type, ".csv")
-  cat(csv_file, "\n\n", file = out_log_file, append = TRUE)
+  cat("Post-process csv: ", csv_file, "\n\n",
+    file = out_log_file_tmp, append = TRUE)
   system(paste0("Rscript process_db_extract.R --method=", data_type,
-                ## " --purpose=post-process --csv_file=../../data/", data_type, ".csv >> ",
-                " --purpose=post-process --csv_file=", data_path, data_type, ".csv >> ",
-                config_$dashboard_log, " 2>&1"))
-  print("Post-process complete")
+                " --purpose=post-process --csv_file=", data_path, data_type, ".csv >> '",
+                ## config_$dashboard_log, " 2>&1"))
+                out_log_file, "' 2>&1"))
+  file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+  file.copy(from = out_log_file_tmp, to = out_log_file, overwrite = TRUE)
+  ## print("Post-process complete")
+  unlink(out_log_file_tmp)
+  cat("\tPost-process complete...(", get_time(), ")\n",
+    file = parent_dashboard_log, append = TRUE)
 }
 
-if (1 == 2) {
-
 if ("prepare" %in% purpose) {  ## Place data in domain_name specific folders
-  print("Start prepare data")
+  cat("\t1. Start prepare... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
   if (is.null(scale)) {
     scale <- c("reefs", "nrm", "sectors")
     data_scale <- c("reef", "nrm", "sector")
   }
   for (i in seq_along(scale)) {
-    print(paste0("Preparing data for ", scale[i]," analyses"))
-    warning(paste0("Preparing data for ", scale[i]," analyses"))
+    cat("\t\t1. Preparing data for (", get_time(), ")",
+      scale[i], "analyses\n\n",
+      file = parent_dashboard_log, append = TRUE)
+    message(paste0("Preparing data for ", scale[i]," analyses"))
+    rds_file <- paste0(config_$data_path, data_type, ".rds")
     system(paste0("Rscript process_db_extract.R --method=", data_type,
                   " --purpose=make_", scale[i],
-                  " --rds_file=../../data/", data_type, ".rds >> ",
-                  config_$dashboard_log, " 2>&1"))
-    warning("About to make the db table")
+                  " --rds_file=", data_path, data_type, ".rds >> '",
+                  ## config_$dashboard_log, "' 2>&1"))
+                  out_log_file, "' 2>&1"))
+    message("About to make the db table")
+    file.append(file1 = out_log_file_tmp, file2 = out_log_file)
+    file.copy(from = out_log_file_tmp, to = out_log_file, overwrite = TRUE)
+    if (data_type == "annual_report") {
+      cat("\t\t2. Creating database for (", get_time(), ")",
+        data_type, "\n\n",
+        file = parent_dashboard_log, append = TRUE)
+      create_db_summary_from_extract(config_$db_path,
+        data_type = data_type,
+        csv_file = paste0(config_$data_path, "annual_report.rds"))
+    }
     update_db_summary_tables(method = data_type, scale = data_scale[i], domain = NULL)
   }
-  print("Prepare data complete")
+  unlink(out_log_file_tmp)
+  cat("\tPrepare complete...(", get_time(), ")\n",
+    file = parent_dashboard_log, append = TRUE)
+  message("Prepare data complete")
 }
 
+
 if ("fit" %in% purpose) {  ## Fit models
-  print("Start fit models")
-  ## domains <- which_models_to_update(method = data_type, scale = data_scale, all = TRUE) |>
-  ##   str_subset("^NA$", negate = TRUE)
-  print(domain)
+  cat("\t1. Start to fit models... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  domains <- which_models_to_update(method = data_type,
+    scale = data_scale, all = TRUE) |>
+    str_subset("^NA$", negate = TRUE)
+  ## cat("\n\t\t- domains", paste(domains, collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+
   if (!all(is.null(domain) | domain == "NULL")) {
     domains <- domain
   } else {
-    ## print("here")
-    ## print(data_type)
-    ## print(data_scale)
-    domains <- which_models_to_update(method = data_type, scale = data_scale, all = FALSE) |>
+    domains <- which_models_to_update(method = data_type,
+      scale = data_scale, all = FALSE) |>
       str_subset("^NA$", negate = TRUE)
-    print("The domains")
-    print(domains)
+    ## print("The domains")
+    ## print(domains)
   }
   ## print(paste0("Fit models for ", domains, " data scale is: ", data_scale))
-  message(paste0("Fit models for ", domains, " data scale: ", data_scale, " data_type: ", data_type ))
-  if(length(domains)>0) {
-    process <- processx::process$new("Rscript",
-                                     args = c("run_models.R",
-                                              paste0("--method=", data_type),
-                                              paste0("--scale=", data_scale),
-                                              paste0("--domain=", domains),
-                                              paste0("--log=", config_$dashboard_log)),
-                                     stdout = config_$dashboard_log
-                                     ## stderr =  config_$dashboard_log
-                                     )
-    ## process$is_alive()
-    process$wait()
-    message(process$get_exit_status())
-    message(process$get_error_file())
-    update_db_model_hash(method = data_type, scale = data_scale, domain = domains)
+  message(paste0("batch.R: Fit models for ", domains, " data scale: ", data_scale, " data_type: ", data_type ))
+  cat("\n\t\t- domains: ", paste(domains, collapse = "\n"), "\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  if (data_scale == "region") {
+    if(length(domains)>0) {
+      process <- processx::process$new("Rscript",
+        args = c("run_annual_report_models.R",
+          paste0("--method=", data_type),
+          paste0("--scale=", data_scale),
+          paste0("--domain=", domains),
+          paste0("--data_path=", data_path),
+          paste0("--output_path=", output_path),
+          paste0("--model_run_location=", model_run_location),
+          paste0("--log=", out_log_file)),
+        stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+        stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+          config_$dashboard_log)
+      )
+      ## ## process$is_alive()
+      process$wait()
+      message(paste0("Get exit status: ", process$get_exit_status()))
+      message(paste0("Get error file: ", process$get_error_file()))
+      message(paste0("Get output file: ", process$get_output_file()))
+    }
+  } else {    ## photo-transect, manta, juveniles and fish
+    if(length(domains)>0) {
+      process <- processx::process$new("Rscript",
+        args = c("run_models.R",
+          paste0("--method=", data_type),
+          paste0("--scale=", data_scale),
+          paste0("--domain=", domains),
+          paste0("--data_path=", data_path),
+          paste0("--output_path=", output_path),
+          paste0("--model_run_location=", model_run_location),
+          ## paste0("--log=", config_$dashboard_log)),
+          paste0("--log=", out_log_file)),
+        stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+        stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+          config_$dashboard_log)
+      )
+      ## ## process$is_alive()
+      process$wait()
+      message(paste0("Get exit status: ", process$get_exit_status()))
+      message(paste0("Get error file: ", process$get_error_file()))
+      message(paste0("Get output file: ", process$get_output_file()))
+      ## if (model_run_location == "local") {
+      ##   message("batch: call update_db_model_hash")
+      ##   update_db_model_hash(method = data_type, scale = data_scale, domain = domains)
+      ##   message(paste0(data_path, data_type, "_", data_scale, "_", domain, ".flag"))
+      ##   file.remove(paste0(data_path, data_type, "_", data_scale, "_", domain, ".flag"))
+      ## }
+    }
   }
-  print("Fit models complete")
+  ## print("Fit models complete")
+  ## message("batch: Fit models complete")
+  cat("Finished fit models from (batch.R)... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
 }
 
+
+
+if (1 == 2) {
 if (1 == 2) {
 
 

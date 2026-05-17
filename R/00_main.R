@@ -2,11 +2,13 @@
 ## docker container kill ltmp-monitoring-model:latest
 ##1. Run the docker container
 ### on dev VM
+## sudo -u shiny docker run --entrypoint R -it --rm -w /home/Project/R -v /export/project/monitoring-dashboard/dev:/home/Project -v /export/project/monitoring-dashboard/data:/data -v /export/project/monitoring-dashboard/output:/output ghcr.io/open-aims/ltmp_dashboard:main
+
 #### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
 #### docker run --rm -it --entrypoint R -v ~/data:/home/analysis/data2 -v ~/dev/R:/home/analysis/scripts --name ltmp ltmp
 
 ## If running from terminal command line
-##docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R
+##sudo -u shiny docker run -it --rm -v ~/dev:/home/Project -v /export/project/monitoring-dashboard/data:/data ghcr.io/open-aims/ltmp_dashboard:main Rscript /home/Project/R/00_main.R
 
 ### on server
 ##2. direct editor to run R within the container
@@ -32,18 +34,17 @@ args <- commandArgs()
 if (ltmp_is_parent()) ltmp_start_matter(args)
 ## print(status::get_setting(element = "data_method"))
 ## Photo-transect analyses
-if (status::get_setting(element = "data_method") == "photo-transect") 
+if (status::get_setting(element = "data_method") == "photo-transect")
   source("ltmp_pt_cover.R")
 
 ## Manta-tow analyses
-if (status::get_setting(element = "data_method") == "manta") 
+if (status::get_setting(element = "data_method") == "manta")
   source("ltmp_manta_cover.R")
 
 ## Juveniles analyses
-if (status::get_setting(element = "data_method") %in% c("juvenile", "juveniles")) 
+if (status::get_setting(element = "data_method") %in% c("juvenile", "juveniles"))
   source("ltmp_juvenile_cover.R")
 
 ## Fish analyses
-if (status::get_setting(element = "data_method") == "fish") 
+if (status::get_setting(element = "data_method") == "fish")
   source("ltmp_fish_cover.R")
-
