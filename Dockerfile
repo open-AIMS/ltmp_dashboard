@@ -15,6 +15,9 @@ RUN R -e "options(repos = \
   # list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2022-10-10/')); \
   list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
   install.packages(c('emmeans','broom','knitr','ggspatial', 'broom.mixed','DHARMa','tidybayes','remotes', 'HDInterval')); \
+
+RUN R -e "options(repos = \
+  list(CRAN = 'https://packagemanager.posit.co/cran/2025-08-11/')); \
   remotes::install_version('INLA', version = '25.04.29', repos = c(getOption('repos'), INLA = 'https://inla.r-inla-download.org/R/testing'), dep = TRUE)"
 
 
