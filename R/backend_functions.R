@@ -26,10 +26,10 @@ get_candidates <- function(tab_name, data_types, scale, domain = NULL) {
     models <- NULL
   } else {
     models <- get_db_model_data(method = NULL, scale = scale, domain = domain)
-  cat("MODELS (", get_time(), ") ",
-    capture.output(print(as.data.frame(models))),
-    "\n", sep = "n",
-    file = config_$dashboard_log, append = TRUE)
+    ## cat("MODELS (", get_time(), ") ",
+    ##   capture.output(print(as.data.frame(models))),
+    ##   "\n", sep = "\n",
+    ##   file = config_$dashboard_log, append = TRUE)
     ## narrow to only those with a path, and of the correct data_type/method
     if (!is.null(models))
       models <- models |>

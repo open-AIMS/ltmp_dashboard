@@ -196,6 +196,25 @@ if(has_model_run_location_argument) {
 cat(paste0("\tModel run location: ", model_run_location), "\n",
   file = parent_dashboard_log, append = TRUE)
 
+has_model_run_refit_argument <- any(grepl("--model_run_refit=.*", args, perl = TRUE))
+if(has_model_run_refit_argument) {
+  arg <- args[grep("--model_run_refit=.*", args)]
+  model_run_refit <- gsub("--model_run_refit=(.)", "\\1", arg)
+} else {
+  model_run_refit <- TRUE
+}
+cat(paste0("\tModel refit: ", model_run_refit), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
+has_final_year_argument <- any(grepl("--final_year=.*", args, perl = TRUE))
+if(has_final_year_argument) {
+  arg <- args[grep("--final_year=.*", args)]
+  final_year <- gsub("--final_year=(.)", "\\1", arg)
+} else final_year <- NULL
+cat(paste0("\tBatch purpose: ", final_year), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
+
 
 cat(paste0("\tData path: ", data_path), "\n",
   file = parent_dashboard_log, append = TRUE)
@@ -468,6 +487,7 @@ if ("fit" %in% purpose) {  ## Fit models
           paste0("--data_path=", data_path),
           paste0("--output_path=", output_path),
           paste0("--model_run_location=", model_run_location),
+          paste0("--model_run_refit=", model_run_refit),
           paste0("--log=", out_log_file)),
         stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
         stderr =  sub("dashboard.log$", "dashboard_model_error.log",
@@ -513,6 +533,36 @@ if ("fit" %in% purpose) {  ## Fit models
   cat("Finished fit models from (batch.R)... (", get_time(), ")\n\n",
     file = parent_dashboard_log, append = TRUE)
 }
+
+if ("recompile" %in% purpose) {
+  cat("\t1. Start to compile annual report figures... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  process <- processx::process$new("Rscript",
+    args = c("../../Annual-GBR-Coral-Report/R/CoralTrends_compile_figures.R",
+      paste0("--cwd=", "../../Annual-GBR-Coral-Report/R/"),
+      ## paste0("--method=", data_type),
+      ## paste0("--scale=", data_scale),
+      paste0("--domain=", "compile"),
+      paste0("--data_path=", data_path),
+      paste0("--final_year=", final_year),
+      paste0("--refit=TRUE"),
+      paste0("--output_path=", output_path),
+      paste0("--sql_path=", sql_path),
+      paste0("--path=", data_path),
+      ## paste0("--model_run_location=", model_run_location),
+      paste0("--log=", out_log_file)),
+    stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+    stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+      config_$dashboard_log)
+  )
+  ## ## process$is_alive()
+  process$wait()
+  message(paste0("Get exit status: ", process$get_exit_status()))
+  message(paste0("Get error file: ", process$get_error_file()))
+  message(paste0("Get output file: ", process$get_output_file()))
+}
+
 
 
 

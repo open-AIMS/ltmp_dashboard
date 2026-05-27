@@ -57,6 +57,13 @@ if(has_output_argument) {
   output_path <- "../output"
 }
 
+has_run_refit_argument <- any(grepl("--model_run_refit=.*", args, perl = TRUE))
+if(has_run_refit_argument) {
+  arg <- args[grep("--model_run_refit=.*", args)]
+  refit <- gsub("--model_run_refit=(.)", "\\1", arg)
+} else {
+  refit <- TRUE
+}
 ## print(paste0("run_models.R: model_run_location=", model_run_location))
 
 cat(paste0("\nStart fitting of ", data_type,", ", data_scale ," data\n=============================================\n"))
@@ -83,6 +90,7 @@ for (dom in domain) {
     paste0("--method=", data_type),
     paste0("--domain='", dom, "'"),
     paste0("--scale=", .scale),
+    paste0("--refit=", refit),
     "--status=true",
     "--refresh_data=false",
     "--data_path=/data/",
