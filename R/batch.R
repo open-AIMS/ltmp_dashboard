@@ -460,7 +460,15 @@ if ("fit" %in% purpose) {  ## Fit models
   domains <- which_models_to_update(method = data_type,
     scale = data_scale, all = TRUE) |>
     str_subset("^NA$", negate = TRUE)
-  ## cat("\n\t\t- domains", paste(domains, collapse = "\n"), "\n",
+  ## cat("\n\t\t- domains from in batch ", paste(domains, collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## cat("\n\t\t- domain from in batch ", paste(domain, collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## cat("\n\t\t- is domain NULL ", paste(is.null(domain), collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## cat("\n\t\t- is domain NULL ", paste(domain == "NULL", collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## cat("\n\t\t- is domain NULL ", paste(!all(is.null(domain) | domain == "NULL"), collapse = "\n"), "\n",
   ##   file = parent_dashboard_log, append = TRUE)
 
   if (!all(is.null(domain) | domain == "NULL")) {
@@ -469,9 +477,18 @@ if ("fit" %in% purpose) {  ## Fit models
     domains <- which_models_to_update(method = data_type,
       scale = data_scale, all = FALSE) |>
       str_subset("^NA$", negate = TRUE)
+    if (length(domains) == 0) {
+      cat("\n\t\t- all are up to date!", "\n",
+        file = parent_dashboard_log, append = TRUE)
+    }
     ## print("The domains")
     ## print(domains)
   }
+
+  ## cat("\n\t\t- domains from in batch ", paste(domains, collapse = "\n"), "\n",
+  ##   file = parent_dashboard_log, append = TRUE)
+  ## stop("I am stopping")
+
   ## print(paste0("Fit models for ", domains, " data scale is: ", data_scale))
   message(paste0("batch.R: Fit models for ", domains, " data scale: ", data_scale, " data_type: ", data_type ))
   cat("\n\t\t- domains: ", paste(domains, collapse = "\n"), "\n",

@@ -960,6 +960,7 @@ update_db_model_hash <- function(method, scale, domain = NULL) {
 
   message(paste0("Copy data to database"), "\n")
   con <- dbConnect(RSQLite::SQLite(), dbname = config_$db_path)
+  DBI::dbExecute(con, "PRAGMA busy_timeout = 5000")
   copy_to(con, models_db, name = "models", temporary = FALSE, overwrite = TRUE)
   dbDisconnect(con)
 

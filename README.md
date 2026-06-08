@@ -89,7 +89,7 @@ Rscript 00_main.R \
 where:
 
 - <s3 address> is the s3 bucket address
-- <DATA_METHOD> is one of: 
+- <DATA_METHOD> is one of:
     - photo-transect
     - manta
     - juvenile
@@ -113,7 +113,7 @@ where:
   sector or region
 - <SCRIPT_NAME> is the name of the script (e.g. 00_main.R)
 
-The command line switches are: 
+The command line switches are:
 
 --file=: the name of the R script to call (e.g. “00_main.R")
 --path=: full path to the reef_data.zip (e.g. folder or bucket address)
@@ -128,7 +128,7 @@ The command line switches are:
 
 --status: whether (true) or not (false) to show the full status of progress within the logs
 
---refresh_data: whether (true) or not (false) to wipe all intermediate artifacts before starting (only useful for debugging) 
+--refresh_data: whether (true) or not (false) to wipe all intermediate artifacts before starting (only useful for debugging)
 
 Note, --file=, --status= and --refresh_data= are optional.  The --file= argument is used to bypass steps in the sequence (mainly for dev and debugging) and if not supplied will be taken from the name of the script called as part of the command line. The later two command line argments will default to true if not provided
 
@@ -226,7 +226,7 @@ Here are some examples of its use.
   - extract manta tow data from the Oracle database
 
 ```
-Rscript batch.R --purpose=sql --method=manta --log=../../data/dashboard.log
+Rscript batch.R --purpose=sql --method=manta --sql_path=/path/to/sql_files/ --log=../../data/dashboard.log
 ```
 
 - example 2, all manta tow data with Townsville sector level reporting
