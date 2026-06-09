@@ -59,6 +59,17 @@ args = c(
   "--refresh_data=false"                            ##whether to refresh all the data
 )
 
+args = c(
+  "R",
+  "Rscript",
+  "--file=manta_cover.R",                            ##the name of the target script
+  "--path=/data/manta/2021-01-14/process/ALL/2024/TO/Sectors/TO/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=TO",
+  "--scale=Sectors",
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false"                            ##whether to refresh all the data
+)
 
 source("ltmp_startup_functions.R")
 source("ltmp_model_functions.R")

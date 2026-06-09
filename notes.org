@@ -216,3 +216,261 @@ sudo systemctl restart shiny-server.service
   path, data_type, data_scale, domain_name, group, reef_zone, depth, shelf, model_date, model_path, reef_model_data_hash, sector_model_hash, nrm_model_data_hash
 -
 - Run sql
+
+
+* Fish analyses
+1. load processed data
+   - data
+     #+begin_src
+# A tibble: 101,445 × 21
+RAP_REEF_PAIR REEF       RAP_OPEN_CLOSED REEF_ZONE REPORT_YEAR
+<dbl> <chr>      <chr>           <chr>           <dbl>
+1             7 Kelso Reef C               _                2006
+2             7 Kelso Reef C               _                2006
+3             7 Kelso Reef C               _                2006
+4             7 Kelso Reef C               _                2006
+5             7 Kelso Reef C               _                2006
+6             7 Kelso Reef C               _                2006
+7             7 Kelso Reef C               _                2006
+8             7 Kelso Reef C               _                2006
+9             7 Kelso Reef C               _                2006
+10             7 Kelso Reef C               _                2006
+# ℹ 101,435 more rows
+# ℹ 16 more variables: SURVEY_DATE <dttm>, SITE_NO <dbl>, TRANSECT_NO <dbl>,
+#   fGROUP <chr>, fish_sub <chr>, ABUNDANCE <dbl>, Biomass <dbl>, fYEAR <fct>,
+#   DATE <date>, Shelf <fct>, Sector <fct>, Bioregion <fct>, NRM_region <fct>,
+#   Region <fct>, SHELF <chr>, VARIABLE <chr>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+2. create model_lookup
+   - model_lookup
+     #+begin_src
+# A tibble: 37 × 7
+   data_type model_type model_response family_type ylab           scale VARIABLE
+   <chr>     <chr>      <chr>          <chr>       <chr>          <lis> <chr>
+ 1 fish      Biomass    Biomass        gamma       Fish biomass … <fn>  Coral T…
+ 2 fish      Biomass    Biomass        gamma       Fish biomass … <fn>  Large f…
+ 3 fish      Biomass    Biomass        gamma       Fish biomass … <fn>  Seconda…
+ 4 fish      Biomass    Biomass        gamma       Fish biomass … <fn>  Small f…
+ 5 fish      Biomass    Biomass        gamma       Fish biomass … <fn>  NA
+ 6 fish      Density    ABUNDANCE      nbinomial   Fish density … <fn>  Coral T…
+ 7 fish      Density    ABUNDANCE      nbinomial   Fish density … <fn>  Harvest…
+ 8 fish      Density    ABUNDANCE      nbinomial   Fish density … <fn>  Herbivo…
+ 9 fish      Density    ABUNDANCE      nbinomial   Fish density … <fn>  Large f…
+10 fish      Density    ABUNDANCE      nbinomial   Fish density … <fn>  Seconda…
+# ℹ 27 more rows
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+3. nest data
+   - data
+     #+begin_src
+# A tibble: 59 × 6
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE     model_type family_type         model_response sub_model data
+   <chr>        <chr>      <chr>               <chr>          <chr>     <list>
+ 1 Large fishes Biomass    gamma               Biomass        restrict… <tibble>
+ 2 Large fishes Density    nbinomial           ABUNDANCE      restrict… <tibble>
+ 3 Large fishes Density    poisson             ABUNDANCE      restrict… <tibble>
+ 4 Large fishes Density    zeroinflatednbinom… ABUNDANCE      restrict… <tibble>
+ 5 Large fishes Density    zeroinflatedpoisso… ABUNDANCE      restrict… <tibble>
+ 6 Small fishes Biomass    gamma               Biomass        restrict… <tibble>
+ 7 Small fishes Density    nbinomial           ABUNDANCE      restrict… <tibble>
+ 8 Small fishes Density    poisson             ABUNDANCE      restrict… <tibble>
+ 9 Small fishes Density    zeroinflatednbinom… ABUNDANCE      restrict… <tibble>
+10 Small fishes Density    zeroinflatedpoisso… ABUNDANCE      restrict… <tibble>
+# ℹ 49 more rows
+# ℹ Use `print(n = ...)` to see more rows
+
+     #+end_src
+4. make base formulas
+   - data
+     #+begin_src
+# A tibble: 59 × 7
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ Use `print(n = ...)` to see more rows
+
+     #+end_src
+5. create analysis splits
+   - data
+     #+begin_src
+# A tibble: 59 × 8
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 1 more variable: analysis_splits <list>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+6. apply splits
+   - data
+     #+begin_src
+# A tibble: 59 × 10
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 3 more variables: analysis_splits <list>, splits <chr>, data_group <list>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+7. prepare nesting variables
+   - data
+     #+begin_src
+# A tibble: 59 × 10
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 3 more variables: analysis_splits <list>, splits <chr>, data_group <list>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+8. update formula
+   - data
+     #+begin_src
+# A tibble: 59 × 10
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 3 more variables: analysis_splits <list>, splits <chr>, data_group <list>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+9. prepare variables
+   - data
+     #+begin_src
+# A tibble: 59 × 10
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 3 more variables: analysis_splits <list>, splits <chr>, data_group <list>
+# ℹ Use `print(n = ...)` to see more rows
+     #+end_src
+10. make newdata
+    - data
+      #+begin_src
+# A tibble: 59 × 11
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 4 more variables: analysis_splits <list>, splits <chr>, data_group <list>,
+#   newdata <list>
+# ℹ Use `print(n = ...)` to see more rows
+      #+end_src
+11. raw data summaries
+    - data
+      #+begin_src
+# A tibble: 59 × 12
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 5 more variables: analysis_splits <list>, splits <chr>, data_group <list>,
+#   newdata <list>, raw_sum <list>
+# ℹ Use `print(n = ...)` to see more rows
+      #+end_src
+12. make modelling label
+    - data
+      #+begin_src
+# A tibble: 59 × 13
+# Groups:   VARIABLE, sub_model [13]
+   VARIABLE   model_type family_type model_response sub_model data     form
+   <chr>      <chr>      <chr>       <chr>          <chr>     <list>   <list>
+ 1 Large fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 2 Large fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 3 Large fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 4 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 5 Large fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+ 6 Small fis… Biomass    gamma       Biomass        restrict… <tibble> <formula>
+ 7 Small fis… Density    nbinomial   ABUNDANCE      restrict… <tibble> <formula>
+ 8 Small fis… Density    poisson     ABUNDANCE      restrict… <tibble> <formula>
+ 9 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+10 Small fis… Density    zeroinflat… ABUNDANCE      restrict… <tibble> <formula>
+# ℹ 49 more rows
+# ℹ 6 more variables: analysis_splits <list>, splits <chr>, data_group <list>,
+#   newdata <list>, raw_sum <list>, label <list>
+# ℹ Use `print(n = ...)` to see more rows
+      #+end_src

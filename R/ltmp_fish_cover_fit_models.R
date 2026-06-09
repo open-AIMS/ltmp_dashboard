@@ -29,9 +29,9 @@ model_lookup <- tribble(
  "fish", NA, "Biomass", "Biomass", "gamma", NA, "Fish biomass per 1000m²", scales::label_number(scale = 1)
  ## "fish", NA, "Biomass", "Biomass", "deltagamma", NA, "Fish biomass per 1000m²", scales::label_number(scale = 1)
  ## "fish", NA, "Biomass", "Biomass", "gamma", NA, "Fish biomass per 1000m²", scales::label_number(scale = 1),
- ## "fish", NA, "Biomass", "Biomass", "tweedie", NA, "Fish biomass per 1000m²", scales::label_number(scale = 1) 
+ ## "fish", NA, "Biomass", "Biomass", "tweedie", NA, "Fish biomass per 1000m²", scales::label_number(scale = 1)
  ) |>
-  dplyr::select(-VARIABLE) |> 
+  dplyr::select(-VARIABLE) |>
   crossing(VARIABLE = unique(data$VARIABLE)) |>
   dplyr::filter(!(VARIABLE %in% c("Damselfishes", "Total fishes", "Harvested", "Herbivores") &
                   model_type == "Biomass")) |>
@@ -41,19 +41,23 @@ model_lookup <- tribble(
   ##           distinct()
   ##           )
 
+## model_lookup <- model_lookup |>
+##   crossing(Zoning = c("Total", "Zoned"))
+
+
 data <- data |>
   ## the fish data does not have fDEPTH, yet it needs to be there for
   ## the generality of some of the pre-modelling processing, so we
   ## will add a blank version
-  mutate(fDEPTH = NA) |>  
+  mutate(fDEPTH = NA) |>
   ltmp_nested_table(model_lookup)
 
-## data <- 
+## data <-
 ##   data |>
 ##   ## the fish data does not have fDEPTH, yet it needs to be there for
 ##   ## the generality of some of the pre-modelling processing, so we
 ##   ## will add a blank version
-##   mutate(fDEPTH = NA) |>  
+##   mutate(fDEPTH = NA) |>
 ##   group_by(VARIABLE) |>
 ##   nest()
 
@@ -78,10 +82,68 @@ data <- data |> ltmp_apply_splits()
 #######################################################################
 data <- data |> ltmp_prepare_nesting_variables()
 
+## Put the zoning stuff in here
+## NEED TO DO THE PAIR CORRECTION FROM THE FILE MIKE SUPPLIED
+rap_pair_lookup <- read_csv("../data/parameters/RAP Pair changes_ME.csv",
+  show_col_types = FALSE)
+## data1 <- data
+data <-
+  data |>
+  mutate(data_group =  map(.x = data_group,
+    .f = ~ {
+      .x |>
+        mutate(AIMS_REEF_NAME = str_replace(REEF, " _$", "")) |>
+        left_join(rap_pair_lookup |>
+                    dplyr::select(AIMS_REEF_NAME, NEW_RAP_PAIR, OPENORCLOSED_AFTER2004),
+          by = c("AIMS_REEF_NAME")
+        )
+    })
+  ) |>
+  crossing(zoning = c("Total", "Zones")) |>
+  mutate(analysis_splits = map2(analysis_splits, zoning,
+    .f =  ~ {
+      analysis_splits <- .x
+      zoning <- .y
+      analysis_splits[["ZONING"]] <- zoning
+      analysis_splits
+    })) |>
+  mutate(data_group =  map2(data_group, zoning,
+    .f = ~ {
+      data_group <- .x
+      zoning <- .y
+      if (zoning == "Zones") {
+        ## only include the years that have both open and closed reefs
+        yrs <- data_group |>
+          dplyr::filter(!is.na(OPENORCLOSED_AFTER2004)) |>
+          droplevels() |>
+          dplyr::select(OPENORCLOSED_AFTER2004, fYEAR) |>
+          distinct() |>
+          ungroup() |>
+          group_by(fYEAR) |>
+          count() |>
+          filter(n == 2) |>
+          pull(fYEAR) |>
+          as.character()
+        data_group <- data_group |>
+          dplyr::filter(!is.na(OPENORCLOSED_AFTER2004)) |>
+          droplevels() |>
+          mutate(fZONE = factor(OPENORCLOSED_AFTER2004),
+            fPAIR = factor(NEW_RAP_PAIR)) |>
+          dplyr::filter(!is.na(fZONE), fYEAR %in% yrs, REPORT_YEAR > 2004) |>
+          droplevels()
+      } else {
+        data_group <- data_group |>
+          mutate(fZONE = "Total",
+            fPAIR = NA)
+      }
+      data_group
+    }))
+
 #######################################################################
 ## Update the formula (e.g. determine what fixed and random effects  ##
 ## to include in the formula based on the data_method and the number ##
 ## of levels of each factor                                          ##
+## Zoning added here                                                 ##
 #######################################################################
 data <- data |> ltmp_update_formula()
 
@@ -120,7 +182,7 @@ null <- data |> ltmp_export_raw_data_pt()
 
 #######################################################################
 ## Fit inla model(s)                                                 ##
-## - gamma (Biomass)                                                 ## 
+## - gamma (Biomass)                                                 ##
 ## - zeroinflatednbinomial1 (Abundance)                              ##
 ## - nbinomial (Abundance)                                           ##
 ## - zeroinflatedpoisson0 (Abundance)                                ##
