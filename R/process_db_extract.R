@@ -92,6 +92,13 @@ if (data_type == "photo-transect" & purpose == "post-process") {
   rds_file <- gsub(".csv", ".rds", csv_file)
   ## print(rds_file)
   saveRDS(pt, file = rds_file)
+  ## lets also save a lookup so we can get back important contextual variables
+  ## like P_CODE, SECTOR and SHELF
+  pt_lookup <- pt |>
+    dplyr::select(P_CODE, AIMS_REEF_NAME, REEF_ZONE, A_SECTOR, SHELF) |>
+    distinct()
+  saveRDS(pt_lookup, file = gsub(".rds$", "_lookup.rds", rds_file))
+
   ## cat("The following is the first 6 rows of the saved data\n")
   ## options(width = 200)
   ## print(head(as.data.frame(pt)))
@@ -321,6 +328,12 @@ if (data_type == "juveniles" & purpose == "post-process") {
   ## print(rds_file)
   ## saveRDS(pt, file = paste0(csv_path, '/pt.rds'))
   saveRDS(pt, file = rds_file)
+
+  cat("Save processed lookup data\n")
+  pt_lookup <- pt |>
+    dplyr::select(P_CODE, AIMS_REEF_NAME, REEF_ZONE, A_SECTOR, SHELF) |>
+    distinct()
+  saveRDS(pt_lookup, file = gsub(".rds$", "_lookup.rds", rds_file))
   ## cat("The following is the first 6 rows of the saved data\n")
   ## options(width = 200)
   ## print(head(as.data.frame(pt)))
@@ -553,6 +566,12 @@ if (data_type == "manta" & purpose == "post-process") {
   ## print(rds_file)
   ## saveRDS(pt, file = paste0(csv_path, '/pt.rds'))
   saveRDS(manta, file = rds_file)
+
+  cat("Save processed lookup data\n")
+  manta_lookup <- manta |>
+    dplyr::select(P_CODE, AIMS_REEF_NAME, A_SECTOR, SHELF) |>
+    distinct()
+  saveRDS(manta_lookup, file = gsub(".rds$", "_lookup.rds", rds_file))
   ## cat("The following is the first 6 rows of the saved data\n")
   ## options(width = 200)
   ## print(head(as.data.frame(manta)))
@@ -775,7 +794,13 @@ if (data_type == "fish" & purpose == "post-process") {
     mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
            SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE),
            LATITUDE = round(LATITUDE, 6),
-           LONGITUDE = round(LONGITUDE, 6)) |>
+           LONGITUDE = round(LONGITUDE, 6))
+  rds_file <- gsub(".csv", ".rds", csv_file)
+  fish_lookup <- fish |>
+    dplyr::select(P_CODE, AIMS_REEF_NAME, REEF_ZONE, A_SECTOR, SHELF) |>
+    distinct()
+  saveRDS(fish_lookup, file = gsub(".rds$", "_lookup.rds", rds_file))
+  fish <- fish |>
     dplyr::rename(SECTOR = A_SECTOR) |>
     dplyr::select(P_CODE, CRUISE_CODE, REEF_NAME, AIMS_REEF_NAME,
                   REEF_ZONE, RAP_REEF_PAIR, RAP_OPEN_CLOSED,
