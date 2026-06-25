@@ -12,44 +12,44 @@
   - ensure that R scripts get triggered
   - ensure that all artifacts returned
 - [ ] document everything
-  
+
 * Docker
 docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R
 
 
 * Photo-transect
 ** Sectors
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024//CA/Sectors/CA/raw/reef_data.zip" --method=photo-transect --domain=CA --scale=Sectors --status=true --refresh_data=false
 #+END_SRC
 
 ** nrm
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024//Burdekin/nrm/Burdekin/raw/reef_data.zip" --method=photo-transect --domain=Burdekin --scale=nrm --status=true --refresh_data=false
 #+END_SRC
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip" --method=photo-transect --domain='Wet Tropics' --scale=nrm --status=true --refresh_data=false
 #+END_SRC
 
 ** reef
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Arlington Reef/raw/reef_data.zip" --method=photo-transect --domain='Arlington Reef' --scale=reef --status=true --refresh_data=false
 #+END_SRC
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Barren Island/raw/reef_data.zip" --method=photo-transect --domain='Barren Island' --scale=reef --status=true --refresh_data=false
 #+END_SRC
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Pandora Reef/raw/reef_data.zip" --method=photo-transect --domain='Pandora Reef' --scale=reef --status=true --refresh_data=false
 #+END_SRC
 
 * Manta tow
 
 * Juveniles
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/juvenile/2021-01-14/process/MMP/2024/PO/reef/Snapper Island/raw/reef_data.zip" --method=juvenile --domain='Snapper Island' --scale=reef --status=true --refresh_data=false
 #+END_SRC
 
-#+BEGIN_SRC bash 
+#+BEGIN_SRC bash
   docker run -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest Rscript /home/Project/R/00_main.R --path="/data/juvenile/2021-01-14/process/ALL/2024/Wet Tropics/nrm/Wet Tropics/raw/reef_data.zip" --method=juvenile --domain='Wet Tropics' --scale=nrm --status=true --refresh_data=false
 #+END_SRC
 
@@ -150,13 +150,22 @@ sqlite3 ~/data/dashboard.sqlite "select * from models where data_type is 'manta'
 | ../../dev/data/modelled//manta_reef_10351S.rds | manta | reef | 10351S | HC |   |   |   |   |   |   | 2024-12-20 | 14:54:43 | cfb1bd169a697b4e78419a57c478f534fa9907adef3b847a73e01867288fd865 |   |
 | ../../dev/data/modelled//manta_reef_10352S.rds | manta | reef | 10352S | HC |   |   |   |   |   |   | 2024-12-20 | 14:54:58 | f28d9419277e65a0b45ffb6f7ef2c980eabc0d4c35a4a08fba1e711232141815 |   |
 
-** Count the number of rows in a database table 
+** Count the number of rows in a database table
 #+BEGIN_SRC bash
 sqlite3 ~/data/dashboard.sqlite "select count(*) from models;"
 #+END_SRC
 
 #+RESULTS:
 : 519
+
+** select certain fields
+Unfortunately, you just have to list them all
+
+** select a field that is called "group"
+Need to put it in square brackets
+#+BEGIN_SRC bash
+sqlite3 ~/data/dashboard.sqlite "select data_type, [group] from models limit 10;"
+#+END_SRC
 
 ** delete a table
 #+BEGIN_SRC bash
@@ -168,7 +177,7 @@ sqlite3 ~/data/dashboard.sqlite "drop table models;"
 #+BEGIN_SRC bash
 crontab -u mlogan -l
 #+END_SRC
-** edit a users crontab 
+** edit a users crontab
 #+BEGIN_SRC bash
 crontab -u mlogan -e
 #+END_SRC
@@ -205,5 +214,5 @@ sudo systemctl restart shiny-server.service
 - system(paste("chmod ug+rw", config_$db_path))
 - Use ~/dev/data/modelled folder to generate a models database table
   path, data_type, data_scale, domain_name, group, reef_zone, depth, shelf, model_date, model_path, reef_model_data_hash, sector_model_hash, nrm_model_data_hash
-- 
+-
 - Run sql
