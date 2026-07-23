@@ -105,8 +105,11 @@ ltmp_parse_cla <- function(args) {
             }
           } else  {           ## local copy
             status::add_setting(element = "data_from", item = "local copy", name = "Data source")
-            DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
-            status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            has_data_program_argument <- any(grepl("--data_program=.*", args, perl = TRUE))
+            if (!has_data_program_argument) {
+              DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
+              status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            }
           }
         } else {                     #we will have to go to the AIMS database
             status::add_setting(element = "data_from", item = "sql", name = "Data source")
