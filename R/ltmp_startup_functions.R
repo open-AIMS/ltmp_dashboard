@@ -105,8 +105,11 @@ ltmp_parse_cla <- function(args) {
             }
           } else  {           ## local copy
             status::add_setting(element = "data_from", item = "local copy", name = "Data source")
-            DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
-            status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            has_data_program_argument <- any(grepl("--data_program=.*", args, perl = TRUE))
+            if (!has_data_program_argument) {
+              DATA_PROGRAM <<- gsub('.*process/([^/]*).*','\\1',AWS_PATH)
+              status::add_setting(element = "data_program", item = DATA_PROGRAM, name = "Data program")
+            }
           }
         } else {                     #we will have to go to the AIMS database
             status::add_setting(element = "data_from", item = "sql", name = "Data source")
@@ -175,21 +178,21 @@ get_params_from_cla <- function(args) {
   if(has_data_program_argument) {
     arg <- args[grep("--data_program=.*", args)]
     status::add_setting(element = "data_program",
-                        item = gsub("--data_program=(.)", "\\1", arg),
+                        item = gsub("--data_program=(.*)", "\\1", arg),
                         name = "Data program")
   }
   has_method_argument <- any(grepl("--method=.*", args, perl = TRUE))
   if(has_method_argument) {
     arg <- args[grep("--method=.*", args)]
     status::add_setting(element = "data_method",
-                        item = gsub("--method=(.)", "\\1", arg),
+                        item = gsub("--method=(.*)", "\\1", arg),
                         name = "Data type")
   }
   has_scale_argument <- any(grepl("--scale=.*", args, perl = TRUE))
   if(has_scale_argument) {
     arg <- args[grep("--scale=.*", args)]
     status::add_setting(element = "data_scale",
-                        item = gsub("--scale=(.)", "\\1", arg),
+                        item = gsub("--scale=(.*)", "\\1", arg),
                         name = "Data scale")
   }
   has_domain_argument <- any(grepl("--domain=.*", args, perl = TRUE))
@@ -197,7 +200,7 @@ get_params_from_cla <- function(args) {
     arg <- args[grep("--domain=.*", args)]
     arg <- gsub("'", "", arg)
     status::add_setting(element = "domain_name",
-                        item = gsub("--domain=(.)", "\\1", arg),
+                        item = gsub("--domain=(.*)", "\\1", arg),
                         name = "Domain name")
   }
 
@@ -205,7 +208,7 @@ get_params_from_cla <- function(args) {
   if(has_data_path_argument) {
     arg <- args[grep("--data_path=.*", args)]
     status::add_setting(element = "data_path",
-                        item = gsub("--data_path=(.)", "\\1", arg),
+                        item = gsub("--data_path=(.*)", "\\1", arg),
                         name = "Data path")
   } else {
     status::add_setting(element = "data_path",
@@ -217,7 +220,7 @@ get_params_from_cla <- function(args) {
   if(has_output_path_argument) {
     arg <- args[grep("--output_path=.*", args)]
     status::add_setting(element = "output_path",
-                        item = gsub("--output_path=(.)", "\\1", arg),
+                        item = gsub("--output_path=(.*)", "\\1", arg),
                         name = "Output path")
   } else {
     status::add_setting(element = "output_path",
