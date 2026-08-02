@@ -738,6 +738,7 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
       group = "", family_type = "",
       reef_zone = "", depth = "", shelf = "", model_type = "",
       sub_model = "",
+      zoning = "",
       model_date = as.POSIXct(now()),
       reef_model_data_hash = "",
       sector_model_data_hash = "",
@@ -774,8 +775,9 @@ scan_models_folder <- function(method = NULL, scale = NULL, domain = NULL) {
             "reef_zone", "depth",
             "shelf",
             "model_type",
-            "sub_model"),
-            regex = "^(.*)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)$"
+            "sub_model",
+            "zoning"),
+            regex = "^(.*)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)$"
             ) |>
           mutate(model_date = as.POSIXct(format(mtime, "%Y-%m-%d %H:%M:%S")),#mtime, #format(mtime, "%Y-%m-%d %H:%M:%S"),
             model_path = .x,

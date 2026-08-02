@@ -237,6 +237,9 @@ cat(paste0("\tInternal db path: ", config_$db_path), "\n",
 ## message(config_$dashboard_log)
 ## message(paste0("Purpose is:", purpose))
 
+cat(paste0("\tDashboard Log file: ", config_$dashboard_log), "\n",
+  file = parent_dashboard_log, append = TRUE)
+
 
 if ("sql" %in% purpose) {  ## Extract from Oracle database
   ## print("Start extraction")
@@ -518,6 +521,10 @@ if ("fit" %in% purpose) {  ## Fit models
     }
   } else {    ## photo-transect, manta, juveniles and fish
     if(length(domains)>0) {
+      message(paste0("batch.R: just about to call run_models"))
+      message(paste0("batch.R: stdout:", sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log)))
+      message(paste0("batch.R: stderr:", sub("dashboard.log$", "dashboard_model_error.log",
+        config_$dashboard_log)))
       process <- processx::process$new("Rscript",
         args = c("run_models.R",
           paste0("--method=", data_type),
@@ -580,6 +587,83 @@ if ("recompile" %in% purpose) {
   message(paste0("Get output file: ", process$get_output_file()))
 }
 
+if ("zoning_recompile" %in% purpose) {
+  cat("\t1. Start to compile zoning figures... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  process <- processx::process$new("Rscript",
+    args = c("../../dev/R/zoning_compile_figures.R",
+      paste0("--cwd=", "../../dev/R/"),
+      paste0("--domain=", "compile"),
+      paste0("--data_path=", data_path),
+      paste0("--method=", data_type),
+      paste0("--scale=", data_scale),
+      paste0("--refit=TRUE"),
+      paste0("--output_path=", output_path),
+      paste0("--path=", data_path),
+      paste0("--log=", out_log_file)),
+    stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+    stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+      config_$dashboard_log)
+  )
+  ## ## process$is_alive()
+  process$wait()
+  message(paste0("Get exit status: ", process$get_exit_status()))
+  message(paste0("Get error file: ", process$get_error_file()))
+  message(paste0("Get output file: ", process$get_output_file()))
+}
+
+if ("zoning_contrasts" %in% purpose) {
+  cat("\t1. Start to compile zoning contrasts figures... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  process <- processx::process$new("Rscript",
+    args = c("../../dev/R/zoning_compile_figures.R",
+      paste0("--cwd=", "../../dev/R/"),
+      paste0("--domain=", "contrasts"),
+      paste0("--data_path=", data_path),
+      paste0("--method=", data_type),
+      paste0("--scale=", data_scale),
+      paste0("--refit=TRUE"),
+      paste0("--output_path=", output_path),
+      paste0("--path=", data_path),
+      paste0("--log=", out_log_file)),
+    stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+    stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+      config_$dashboard_log)
+  )
+  ## ## process$is_alive()
+  process$wait()
+  message(paste0("Get exit status: ", process$get_exit_status()))
+  message(paste0("Get error file: ", process$get_error_file()))
+  message(paste0("Get output file: ", process$get_output_file()))
+}
+
+if ("zoning_contrasts_sector" %in% purpose) {
+  cat("\t1. Start to compile zoning contrasts figures... (", get_time(), ")\n\n",
+    file = parent_dashboard_log, append = TRUE)
+
+  process <- processx::process$new("Rscript",
+    args = c("../../dev/R/zoning_compile_figures.R",
+      paste0("--cwd=", "../../dev/R/"),
+      paste0("--domain=", "contrasts_sector"),
+      paste0("--data_path=", data_path),
+      paste0("--method=", data_type),
+      paste0("--scale=", data_scale),
+      paste0("--refit=TRUE"),
+      paste0("--output_path=", output_path),
+      paste0("--path=", data_path),
+      paste0("--log=", out_log_file)),
+    stdout = sub("dashboard.log$", "dashboard_model.log", config_$dashboard_log),
+    stderr =  sub("dashboard.log$", "dashboard_model_error.log",
+      config_$dashboard_log)
+  )
+  ## ## process$is_alive()
+  process$wait()
+  message(paste0("Get exit status: ", process$get_exit_status()))
+  message(paste0("Get error file: ", process$get_error_file()))
+  message(paste0("Get output file: ", process$get_output_file()))
+}
 
 
 

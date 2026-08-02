@@ -23,11 +23,12 @@
 #system("cp -r /data/spatial ../data/spatial")
 
 
+
 library(status)
 
 source("ltmp_startup_functions.R")
 
-
+## Goto dev.R and run a args
 args <- commandArgs()
 
 

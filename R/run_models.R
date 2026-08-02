@@ -1,3 +1,4 @@
+cat(paste0("\nInside of run_models.R ","\n=============================================\n"))
 cat("\nInside run_model.R\n=============================================\n")
 message("\nInside run_model.R\n=============================================\n")
 message("load packages\n")
@@ -225,6 +226,7 @@ for (dom in domain) {
     cat(paste0("sbatch:", remote_cmd, "\n"), file = out_other_file, append = TRUE)  #log/dashboard.other
     cat(paste0("\n\n", paste("bash -l -c", shQuote(remote_cmd)), "\n"), file = out_other_file, append = TRUE)
     cat(paste(remote_cmd, "\n"))   # log/dashboard_model.log
+    cat(paste0("The log file for the call to the HPC will be:", out_log_file, "\n"), file = out_other_file, append = TRUE)
 
     process <- processx::process$new(
       "ssh",

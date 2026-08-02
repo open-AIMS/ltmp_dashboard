@@ -16,14 +16,14 @@ data <- ltmp_load_processed_data_pt() |> mutate(sub_model = NA)
 
 #######################################################################
 ## Create the nested tibble                                          ##
-## 
+##
 #######################################################################
 model_lookup <- tribble(
   ~data_type, ~VARIABLE, ~model_type, ~model_response, ~sub_model, ~ylab, ~scale,
   "photo-transect", NA, "Cover", "COUNT", NA, "Percent cover", scales::label_percent(),
   ) |>
-  dplyr::select(-VARIABLE) |> 
-  crossing(VARIABLE = unique(data$VARIABLE)) |> 
+  dplyr::select(-VARIABLE) |>
+  crossing(VARIABLE = unique(data$VARIABLE)) |>
   crossing(family_type = c("binomial", "beta-binomial")) |>
   dplyr::select(-sub_model)
 
@@ -54,6 +54,9 @@ data <- data |> ltmp_apply_splits()
 #######################################################################
 data <- data |> ltmp_prepare_nesting_variables()
 ## data1[1, 'data_group'][[1]][[1]] |> as.data.frame() |> head()
+
+
+data <- data |> ltmp_prepare_zoning()
 
 #######################################################################
 ## Update the formula (e.g. determine what fixed and random effects  ##
@@ -141,6 +144,16 @@ data_group_compare <- data |> ltmp_group_compare_models(model_lookup)
 ## data_compare$gg[[1]]
 ## data_compare$gg[[5]]
 ## data_compare$gg[[6]]
+
+#######################################################################
+## Generate a partial plots (without the raw data) for the selected  ##
+## model only                                                        ##
+## Figures saved in DATA_PATH/modelled/gg_partial*.png               ##
+#######################################################################
+data_partial <- data |> ltmp_partial_summary_plots(model_lookup)
+if(status::get_setting("data_scale") == "Sectors11;rgb:0000/0000/0000")
+  data_mpa <- data |> ltmp_mpa_summary_plots(model_lookup)
+
 
 #######################################################################
 ## Generate a plot that displays the raw trends for each transect    ##

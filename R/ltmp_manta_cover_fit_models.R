@@ -21,8 +21,8 @@ model_lookup <- tribble(
   ~data_type, ~VARIABLE, ~model_type, ~model_response, ~sub_model, ~ylab, ~scale,
   "manta", NA, "Cover", "Cover", NA, "Percent cover", scales::label_percent(),
   ) |>
-  dplyr::select(-VARIABLE) |> 
-  crossing(VARIABLE = unique(data$VARIABLE)) |> 
+  dplyr::select(-VARIABLE) |>
+  crossing(VARIABLE = unique(data$VARIABLE)) |>
   crossing(family_type = c("beta")) |>
   dplyr::select(-sub_model)
 
@@ -54,6 +54,9 @@ data <- data |> ltmp_apply_splits()
 #######################################################################
 data <- data |> ltmp_prepare_nesting_variables()
 
+data <- data |> ltmp_prepare_zoning()
+
+print(data)
 #######################################################################
 ## Update the formula (e.g. determine what fixed and random effects  ##
 ## to include in the formula based on the data_method and the number ##

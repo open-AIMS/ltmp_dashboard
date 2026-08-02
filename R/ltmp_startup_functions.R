@@ -15,9 +15,11 @@ ltmp_is_parent <- function() {
 ## - parse the command line arguments                                  ##
 #########################################################################
 ltmp_start_matter <- function(args = commandArgs()) {
+  message("Initialise status")
     ltmp_initialise_status()                 ## create the status list
+  message("Set stage")
     status::status_set_stage(stage = 1, title = "Configure system")
-    ## if (do_display) status::display_status_terminal()        ## display an opening banner
+    if (do_display) status::display_status_terminal()        ## display an opening banner
     ltmp_parse_cla(args)                    ## parse command line arguments
     if (do_display) status::display_status_terminal()        ## display an opening banner
     ## if (status::get_setting("refresh_data")) ltmp_clear_data()

@@ -13,7 +13,7 @@ ltmp_prepare_export <- function(dat, model_lookup) {
                 ) |>
       dplyr::filter(selected) |>
       dplyr::select(VARIABLE, model_response, posteriors, .units, splits,
-                    model_type, sub_model) |>
+                    zoning, model_type, sub_model) |>
       ## add the exports
       mutate(
         exports = pmap(
@@ -119,11 +119,12 @@ ltmp__prepare_export_year_sum <- function(posteriors, .units, splits, VARIABLE, 
       DATA_TYPE = model_type,
       DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
       UNITS = .units,
-      SUB_MODEL = sub_model) |>
+      SUB_MODEL = sub_model,
+      ZONE = fZONE) |>
     dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
                   DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
                   REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
-                  VARIABLE, SUB_MODEL,
+                  VARIABLE, SUB_MODEL, ZONE,
                   mean, median, lower, upper) |>
     filter(!is.na(median)) |>
     droplevels()
@@ -155,11 +156,12 @@ ltmp__prepare_export_year_posteriors <- function(posteriors, .units, splits, VAR
       DATA_TYPE = model_type,
       DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
       UNITS = .units,
-      SUB_MODEL = sub_model) |>
+      SUB_MODEL = sub_model,
+      ZONE = fZONE) |>
     dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
                   DATA_METHOD, DATA_TYPE, UNITS, REPORT_YEAR, DATE,
                   REEFPAGE_CATEGORY=fGROUP, REEF_ZONE, DEPTH, SHELF,
-                  VARIABLE, SUB_MODEL,
+                  VARIABLE, SUB_MODEL, ZONE,
                   .draw, value)
  return(export)
 }
@@ -179,7 +181,8 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
         DATA_PROGRAM = status::get_setting(element = "data_program"), # "ALL", "LTMP" or "MMP"
         DATA_TYPE = model_type,
         DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
-        SUB_MODEL = sub_model) |>
+        SUB_MODEL = sub_model,
+        ZONE = fZONE) |>
       crossing(UNITS = c("absolute change", "fold change")) |>
       mutate(YearComp = NA, mean = NA, median = NA, lower = NA, upper = NA) |>
       dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
@@ -187,7 +190,7 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
         ## REPORT_YEAR, DATE,
         ## REEFPAGE_CATEGORY=fGROUP,
         REEF_ZONE, DEPTH, SHELF,
-        VARIABLE, SUB_MODEL,
+        VARIABLE, SUB_MODEL, ZONE,
         UNITS,
         YearComp,
         mean, median, lower, upper) |>
@@ -208,13 +211,14 @@ ltmp__prepare_export_yearcomp_sum <- function(posteriors, .units, splits, VARIAB
         DATA_TYPE = model_type,
         DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
         UNITS = ifelse(variable == "value", "absolute change", "fold change"),
-        SUB_MODEL = sub_model) |>
+        SUB_MODEL = sub_model,
+        ZONE = fZONE) |>
       dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
         DATA_METHOD, DATA_TYPE, UNITS,
         ## REPORT_YEAR, DATE,
         ## REEFPAGE_CATEGORY=fGROUP,
         REEF_ZONE, DEPTH, SHELF,
-        VARIABLE, SUB_MODEL,
+        VARIABLE, SUB_MODEL, ZONE,
         UNITS,
         YearComp,
         mean, median, lower, upper) |>
@@ -228,7 +232,7 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
   if (!file.exists(posteriors$yearcomp_posteriors)) return(NULL)
   yearcomp_posteriors <- readRDS(posteriors$yearcomp_posteriors)
   export <- yearcomp_posteriors |>
-    mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA)
+    mutate(PURPOSE = "GROUP_LEVEL", fGROUP = NA) |> ungroup()
   export <- export |>
     mutate(splits = splits) |>
     mutate(VARIABLE = VARIABLE) |>
@@ -241,13 +245,14 @@ ltmp__prepare_export_yearcomp_posteriors <- function(posteriors, .units, splits,
       DATA_TYPE = model_type,
       DATA_METHOD = status::get_setting(element = "data_method"), #"photo-transect" or "manta"
       UNITS = .units,
-      SUB_MODEL = sub_model) |>
+      SUB_MODEL = sub_model,
+      ZONE = fZONE) |>
     dplyr::select(PURPOSE, DOMAIN_CATEGORY, DOMAIN_NAME, DATA_PROGRAM,
                   DATA_METHOD, DATA_TYPE, UNITS,
                   ## REPORT_YEAR, DATE,
                   ## REEFPAGE_CATEGORY=fGROUP,
                   REEF_ZONE, DEPTH, SHELF,
-                  VARIABLE, SUB_MODEL,
+                  VARIABLE, SUB_MODEL, ZONE,
                   YearComp,
                   .draw, value, frac)
   return(export)

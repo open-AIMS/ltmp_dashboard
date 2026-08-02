@@ -80,7 +80,7 @@ if (data_type == "photo-transect" & purpose == "post-process") {
   pt <- read_csv(paste0(csv_file))
   cat("Process extracted data\n")
   pt <- pt |>
-    mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
+    mutate(P_CODE = ifelse(P_CODE %in% c("IN", "RR"), "MMP", "LTMP"),
            SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE),
            ## SURVEY_DATE = lubridate::parse_date_time(SURVEY_DATE),
            ## REEF_ZONE = ifelse(is.null(REEF_ZONE), "_", REEF_ZONE),
@@ -315,7 +315,7 @@ if (data_type == "juveniles" & purpose == "post-process") {
   pt <- read_csv(paste0(csv_file))
   cat("Process extracted data\n")
   pt <- pt |>
-    mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
+    mutate(P_CODE = ifelse(P_CODE %in% c("IN", "RR"), "MMP", "LTMP"),
            SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE),
            ## SURVEY_DATE = lubridate::parse_date_time(SURVEY_DATE),
            ## REEF_ZONE = ifelse(is.null(REEF_ZONE), "_", REEF_ZONE),
@@ -557,7 +557,7 @@ if (data_type == "manta" & purpose == "post-process") {
   manta <- read_csv(paste0(csv_file))
   cat("Process extracted data\n")
   manta <- manta |>
-    mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
+    mutate(P_CODE = ifelse(P_CODE %in% c("IN", "RR"), "MMP", "LTMP"),
            SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE),
            LATITUDE = round(LATITUDE, 6),
            LONGITUDE = round(LONGITUDE, 6))
@@ -791,7 +791,7 @@ if (data_type == "fish" & purpose == "post-process") {
   fish <- read_csv(paste0(csv_file))
   cat("Process extracted data\n")
   fish <- fish |>
-    mutate(P_CODE = ifelse(P_CODE=="IN", "MMP", "LTMP"),
+    mutate(P_CODE = ifelse(P_CODE %in% c("IN", "RR"), "MMP", "LTMP"),
            SURVEY_DATE = lubridate::ymd_hms(SURVEY_DATE),
            LATITUDE = round(LATITUDE, 6),
            LONGITUDE = round(LONGITUDE, 6))

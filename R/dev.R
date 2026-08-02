@@ -1,6 +1,11 @@
 ## Fully through docker
 docker pull ghcr.io/open-aims/ltmp_dashboard:dev
-docker run --entrypoint R --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev Rscript /home/Project/R/00_main.R --path='/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip' --method=fish --domain='Pompey Reef No.1' --scale=reef
+docker run --entrypoint R --rm -v /export/project/monitoring-dasboard/dev:/home/Project -v /export/project/monitoring-dashboard/data:/data ghcr.io/open-aims/ltmp_dashboard:dev Rscript /home/Project/R/00_main.R --path='/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Pompey Reef No.1/raw/reef_data.zip' --method=fish --domain='Pompey Reef No.1' --scale=reef
+
+## Debugging
+sudo -u shiny docker run --entrypoint R -it --rm -v /export/project/monitoring-dashboard/dev:/home/Project -v /export/project/monitoring-dashboard/data:/data -v /export/project/monitoring-dashboard/output:/output ghcr.io/open-aims/ltmp_dashboard:dev
+
+
 
 #### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ltmp-monitoring-model:latest
 #### docker run --entrypoint R -it --rm -v ~/dev:/home/Project -v ~/data:/data ghcr.io/open-aims/ltmp_dashboard:dev
@@ -11,6 +16,183 @@ system("cp -r /data/spatial ../data/spatial")
 ## remotes::install_github('open-AIMS/status', ref = 'main', force = TRUE)
 library(status)
 source("ltmp_startup_functions.R")
+
+## The following are for dev on 00_main.R
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Aquila Island/raw/reef_data.zip",
+  "--method=photo-transect",
+  "--domain=Aquila Island",
+  "--scale=reef",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Agincourt Reef No.1/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=Agnincourt Reef No.1",
+  "--scale=reef",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/photo-transect/2021-01-14/process/ALL/2024/CL/Sectors/CL/raw/reef_data.zip",
+  "--method=photo-transect",
+  "--domain=CL",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/TO/Sectors/TO/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=TO",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/PO/Sectors/PO/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=PO",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/CG/Sectors/CG/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=CG",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/WH/Sectors/WH/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=WH",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/photo-transect/2021-01-14/process/ALL/2024/CA/Sectors/CA/raw/reef_data.zip",
+  "--method=photo-transect",
+  "--domain=CA",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/fish/2021-01-14/process/ALL/2024/CA/Sectors/CA/raw/reef_data.zip",
+  "--method=manta",
+  "--domain=CA",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=00_main.R",
+  "--path=/data/juvenile/2021-01-14/process/ALL/2024/CA/Sectors/CA/raw/reef_data.zip",
+  "--method=juveniles",
+  "--domain=CA",
+  "--scale=Sectors",
+  "--status=true",
+  "--refresh_data=false",
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+
+
+## The following are for dev on run_models.R
+args = c(
+  "R",
+  "Rscript",
+  "--file=manta_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/TO/Sectors/TO/raw/reef_data.zip",
+  "--method=fish",
+  "--domain=TO",
+  "--data_path=/data/",
+  "--scale=sector",
+  "--log=/data/log/model.log",
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false",                            ##whether to refresh all the data
+  "--output_path=/output/",
+  "--model_run_location=local"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=fish_cover.R",                            ##the name of the target script
+  "--path=/data/fish/2021-01-14/process/ALL/2024/ALL/reef/Broomfield Reef/raw/reef_data.zip",
+  "--data_path=/data/",
+  "--method=fish",
+  "--domain=Broomfield Reef",
+  "--scale=reef",
+  "--log=/data/log/model.log",
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false",                            ##whether to refresh all the data
+  "--output_path=/output/",
+  "--model_run_location=hpc"
+)
 
 args = c(
   "R",

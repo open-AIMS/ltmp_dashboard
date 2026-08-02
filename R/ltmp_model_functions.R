@@ -24,7 +24,7 @@ ltmp_nested_table <- function(data, model_lookup) {
       dplyr::select(VARIABLE, model_type, family_type, model_response, everything())
   },
   stage_ = 4,
-  order_ = 1,
+  order_ = 2,
   name_ = "Nest data",
   item_ = "nest_data"
   )
@@ -63,7 +63,7 @@ ltmp_get_formula_pt <- function(data) {
     data
   },
   stage_ = 4,
-  order_ = 2,
+  order_ = 3,
   name_ = "Make photo-transect formula",
   item_ = "make_formula_pt"
   )
@@ -125,7 +125,7 @@ ltmp_analysis_splits <- function(data) {
     data
   },
   stage_ = 4,
-  order_ = 3,
+  order_ = 4,
   name_ = "Make splits",
   item_ = "analysis_splits"
   )
@@ -180,7 +180,7 @@ ltmp_apply_splits <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 4,
+  order_ = 5,
   name_ = "Apply splits",
   item_ = "apply_splits"
   )
@@ -221,9 +221,96 @@ ltmp_prepare_nesting_variables <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 5,
+  order_ = 6,
   name_ = "Prepare nesting vars",
   item_ = "prepare_nesting"
+  )
+  return(dat)
+}
+
+
+ltmp_prepare_zoning <- function(dat) {
+  status::status_try_catch(
+  {
+    data_scale <- status::get_setting("data_scale")
+    data_method <- status::get_setting("data_method")
+    ## NEED TO DO THE PAIR CORRECTION FROM THE FILE MIKE SUPPLIED
+    rap_pair_lookup <- read_csv("../data/parameters/RAP Pair changes_ME.csv",
+      show_col_types = FALSE)
+    ## data1 <- data
+    dat <-
+      dat |>
+      mutate(data_group =  map(.x = data_group,
+        .f = ~ {
+          .x |>
+            mutate(AIMS_REEF_NAME = str_replace(REEF, " _$", "")) |>
+            left_join(rap_pair_lookup |>
+                        dplyr::select(AIMS_REEF_NAME, NEW_RAP_PAIR = NEW_PAIR, OPENORCLOSED_AFTER2004),
+              by = c("AIMS_REEF_NAME")
+            )
+        })
+      ) |>
+      cross_join(data.frame(zoning = c("Total", "Zones"))) |>
+      ## crossing(zoning = c("Total", "Zones")) |>
+      mutate(analysis_splits = map2(analysis_splits, zoning,
+        .f =  ~ {
+          analysis_splits <- .x
+          zoning <- .y
+          analysis_splits[["ZONING"]] <- zoning
+          analysis_splits
+        })) |>
+      mutate(data_group =  map2(data_group, zoning,
+        .f = ~ {
+          data_group <- .x
+          zoning <- .y
+          if (zoning == "Zones" &
+                data_method != "manta" &
+                data_scale %in% c("sector", "Sectors")) {
+            ## only include the years that have both open and closed reefs
+            yrs <- data_group |>
+              dplyr::filter(!is.na(OPENORCLOSED_AFTER2004)) |>
+              droplevels() |>
+              dplyr::select(OPENORCLOSED_AFTER2004, fYEAR) |>
+              distinct() |>
+              ungroup() |>
+              group_by(fYEAR) |>
+              count() |>
+              filter(n == 2) |>
+              pull(fYEAR) |>
+              as.character()
+            ## from 2005 to 2020, only include even years
+            yrs <- yrs[!yrs %in% c("2005", "2007", "2009", "2011", "2013", "2015", "2017", "2019")]
+            data_group <- data_group |>
+              dplyr::filter(!is.na(OPENORCLOSED_AFTER2004),
+                !is.na(NEW_RAP_PAIR)) |>
+              droplevels() |>
+              mutate(fZONE = factor(OPENORCLOSED_AFTER2004),
+                fPAIR = factor(NEW_RAP_PAIR)) |>
+              dplyr::filter(!is.na(fZONE), fYEAR %in% yrs, REPORT_YEAR > 2004) |>
+              droplevels()
+          } else {
+            data_group <- data_group |>
+              mutate(fZONE = "Total",
+                fPAIR = NA)
+          }
+          data_group
+        })) |>
+      ## exclude any instances where there are no Paired Reefs (e.g. CL for Zoning)
+      mutate(N = map(data_group,
+        .f = ~ nrow(.x))) |>
+      filter(N>0) |>
+      droplevels() |>
+      dplyr::select(-N)
+
+    if (!status::get_setting("data_scale") %in% c("sector", "Sectors") | data_method == "manta") {
+      dat <- dat |> filter(zoning == "Total") |> droplevels()
+    }
+    return(dat)
+  },
+  stage_ = 4,
+  order_ = 7,
+  name_ = "Prepare zoning",
+  item_ = "prepare_zoning"
   )
   return(dat)
 }
@@ -237,6 +324,7 @@ update_with_zoning <- function(f) {
 
   # 2. Extract all term labels from the formula
   all_terms <- attr(terms(f), "term.labels")
+
 
   # 3. Separate fixed effects from INLA f() random effects
   ## INLA random effects: f(...)
@@ -254,16 +342,28 @@ update_with_zoning <- function(f) {
     new_fixed <- paste(expanded_terms, collapse = " + ")
   }
 
-  # 5. Recombine the expanded fixed terms and the original random effects
-  if (length(inla_random) > 0) {
-    random_part <- paste(inla_random, collapse = " + ")
-    final_rhs   <- paste(new_fixed, "+", random_part)
+  #5. Handle offsets
+  offset_i <- attr(terms(f), "offset")
+  ## print(paste0("The offset", offset_i))
+  ## print(paste0("Length of the offset", length(offset_i)))
+  if (length(offset_i) > 0) {
+    offset <- paste("+", rownames(attr(terms(f), "factors"))[offset_i])
   } else {
-    final_rhs   <- new_fixed
+    offset <- ""
   }
 
-  # 6. Reconstruct the clean R formula object
+  # 6. Recombine the expanded fixed terms and the original random effects
+  if (length(inla_random) > 0) {
+    random_part <- paste(inla_random, collapse = " + ")
+    final_rhs   <- paste(new_fixed, "+", random_part, offset)
+  } else {
+    final_rhs   <- paste(new_fixed, offset)
+  }
+
+  ## print(paste0("final:", final_rhs))
+  # 7. Reconstruct the clean R formula object
   final_str <- paste(deparse(resp), "~", final_rhs)
+  ## print(paste0("final str:", final_str))
 
   as.formula(final_str)
 }
@@ -292,7 +392,7 @@ ltmp_update_formula <- function(dat) {
                               status::get_setting(element = "data_method") == "photo-transect") {
                              form <- update(form, .~. + f(fYEAR_GROUP, model='iid'))
                            }
-                           if(analysis_splits$ZONING)
+                           if(analysis_splits$ZONING == "Zones")
                              form <- update(update_with_zoning(form), .~. + f(fPAIR, model = "iid"))
                            form
                          }
@@ -363,7 +463,7 @@ ltmp_prepare_variables <- function(dat) {
     ## dat
   },
   stage_ = 4,
-  order_ = 7,
+  order_ = 8,
   name_ = "Prepare vars",
   item_ = "prepare_variables"
   )
@@ -378,60 +478,64 @@ ltmp_newdata <- function(dat, data_type = "photo-transect") {
     ## print(head(as.data.frame(dat$data_group[[1]])))
     dat <- dat |>
       mutate(newdata = map(.x = data_group,
-                           .f = ~ {
-                             data_group <- .x
-                             if (data_type == "photo-transect") {
-                             newdata <- data_group |>
-                               tidyr::expand(fYEAR, fGROUP, REEF = NA,
-                                             SITE = NA, SITE_NO = NA,
-                                             TRANSECT_NO = NA, COUNT = NA,
-                                             TOTAL = NA)
-                             }
-                             if (data_type == "juvenile") {
-                             newdata <- data_group |>
-                               tidyr::expand(fYEAR, fGROUP, REEF = NA,
-                                             SITE = NA, SITE_NO = NA,
-                                             ABUNDANCE = NA,
-                                             AVAILABLE_SUBSTRATE = 1)
-                             }
-                             if (data_type == "manta") {
-                               newdata <- data_group |>
-                               tidyr::expand(fYEAR, fGROUP, REEF = NA,
-                                             Cover = NA,
-                                             Tows = NA, fTOW = NA)
-                             }
-                             if (data_type == "fish") {
-                               newdata <- data_group |>
-                               tidyr::expand(fYEAR, fGROUP, REEF = NA,
-                                             SITE = NA, SITE_NO = NA,
-                                             TRANSECT_NO = NA,
-                                             ABUNDANCE = NA, Biomass =  NA,
-                                             fPAIR = NA, fZONE
-                                 )
-                             }
-                             ## Add back on the mean survey date so that
-                             ## the modelled values can be plotted on an
-                             ## x-axis reflecting sampling time Will
-                             ## need to think about what to do about
-                             ## higher spatial aggregates (domains)
-                             newdata <- newdata |>
-                               mutate(REPORT_YEAR = as.numeric(as.character(fYEAR))) |>
-                               left_join(data_group |>
-                                         group_by(fYEAR) |>
-                                         summarise(DATE = if_else(length(unique(REEF)) == 1,
-                                                                  mean(DATE, na.rm = TRUE),
-                                                                  as.Date(paste0(unique(fYEAR), '-01-01')))) |>
-                                         dplyr::select(fYEAR, DATE) |>
-                                         distinct(),
-                                         by = "fYEAR"
-                                         )
-                             newdata
-                           }
-                           ))
+        .f = ~ {
+          data_group <- .x
+          if (nrow(data_group) == 0) return(NA)
+          if (data_type == "photo-transect") {
+            newdata <- data_group |>
+              tidyr::expand(fYEAR, fGROUP, REEF = NA,
+                SITE = NA, SITE_NO = NA,
+                TRANSECT_NO = NA, COUNT = NA,
+                TOTAL = NA,
+                fPAIR = NA, fZONE)
+          }
+          if (data_type == "juvenile") {
+            newdata <- data_group |>
+              tidyr::expand(fYEAR, fGROUP, REEF = NA,
+                SITE = NA, SITE_NO = NA,
+                ABUNDANCE = NA,
+                AVAILABLE_SUBSTRATE = 1,
+                fPAIR = NA, fZONE)
+          }
+          if (data_type == "manta") {
+            newdata <- data_group |>
+              tidyr::expand(fYEAR, fGROUP, REEF = NA,
+                Cover = NA,
+                Tows = NA, fTOW = NA,
+                fPAIR = NA, fZONE)
+          }
+          if (data_type == "fish") {
+            newdata <- data_group |>
+              tidyr::expand(fYEAR, fGROUP, REEF = NA,
+                SITE = NA, SITE_NO = NA,
+                TRANSECT_NO = NA,
+                ABUNDANCE = NA, Biomass =  NA,
+                fPAIR = NA, fZONE
+              )
+          }
+          ## Add back on the mean survey date so that
+          ## the modelled values can be plotted on an
+          ## x-axis reflecting sampling time Will
+          ## need to think about what to do about
+          ## higher spatial aggregates (domains)
+          newdata <- newdata |>
+            mutate(REPORT_YEAR = as.numeric(as.character(fYEAR))) |>
+            left_join(data_group |>
+                        group_by(fYEAR) |>
+                        summarise(DATE = if_else(length(unique(REEF)) == 1,
+                          mean(DATE, na.rm = TRUE),
+                          as.Date(paste0(unique(fYEAR), '-01-01')))) |>
+                        dplyr::select(fYEAR, DATE) |>
+                        distinct(),
+              by = "fYEAR"
+            )
+          newdata
+        }
+      ))
     dat
   },
   stage_ = 4,
-  order_ = 8,
+  order_ = 9,
   name_ = "Create newdata",
   item_ = "create_newdata"
   )
@@ -447,18 +551,18 @@ ltmp_raw_data_summaries_pt <- function(dat) {
                              data_group <- .x
                              data_group |>
                                mutate(cover = COUNT/TOTAL) |>
-                               group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
+                               group_by(fZONE, REEF, REEF_ZONE, fDEPTH, SITE_NO, TRANSECT_NO, fYEAR) |>
                                summarise(cover = sum(cover),
                                          TOTAL = sum(TOTAL),
                                          .groups = "keep") |>
                                ungroup() |>
-                               group_by(REEF, fYEAR) |>
+                               group_by(fZONE, REEF, fYEAR) |>
                                summarise(Mean = mean(cover),
                                          Median = median(cover),
                                          Total.count = sum(TOTAL),
                                          .groups = "keep") |>
                                ungroup() |>
-                               group_by(fYEAR) |>
+                               group_by(fZONE, fYEAR) |>
                                summarise(Mean = mean(Mean),
                                          Median = median(Median),
                                          Total.count = sum(Total.count),
@@ -469,7 +573,7 @@ ltmp_raw_data_summaries_pt <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 9,
+  order_ = 10,
   name_ = "Raw summaries",
   item_ = "raw_sum_pt"
   )
@@ -496,7 +600,7 @@ ltmp_make_modelling_label <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 10,
+  order_ = 11,
   name_ = "Make model labels",
   item_ = "model_label"
   )
@@ -519,7 +623,7 @@ ltmp_export_raw_data_pt <- function(dat) {
           )
   },
   stage_ = 4,
-  order_ = 10.5,
+  order_ = 12,
   name_ = "Export raw data",
   item_ = "export_raw"
   )
@@ -599,7 +703,7 @@ ltmp_get_model_posteriors <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 12,
+  order_ = 15,
   name_ = "Get posteriors",
   item_ = "get_posteriors"
   )
@@ -617,11 +721,11 @@ get_model_posteriors <- function(mod_str, data.group) {
   ## present at all in the cell) replace the mean, median and
   ## lower/upper with 0
   if ("COUNT" %in% names(data.group)) {  ## Photo-transect only
-  replace_0 <- data.group %>%
-    group_by(fYEAR, fGROUP, .drop = FALSE) %>%
-    summarise(Sum = sum(COUNT), .groups = "keep")
+    replace_0 <- data.group %>%
+      group_by(fZONE, fYEAR, fGROUP, .drop = FALSE) %>%
+      summarise(Sum = sum(COUNT), .groups = "keep")
   } else {  # Juveniles have a different way of dealing with this
-    replace_0 <- tribble(~fYEAR, ~fGROUP, ~Sum)
+    replace_0 <- tribble(~fZONE, ~fYEAR, ~fGROUP, ~Sum)
   }
 
   draws <- inla.posterior.sample(n = 1000, mod, seed = 123)
@@ -641,7 +745,7 @@ get_model_posteriors <- function(mod_str, data.group) {
   ##           catalog_file = TRUE)
 
   year_group_sum <- year_group_posteriors |>
-    group_by(fYEAR, fGROUP, REPORT_YEAR, DATE) %>%
+    group_by(fYEAR, fGROUP, fZONE, REPORT_YEAR, DATE) %>%
     mean_median_hdci(value) %>%
     ungroup()
   saveRDS(year_group_sum, file = gsub("posteriors", "sum", year_group_posteriors_label))
@@ -657,7 +761,7 @@ get_model_posteriors <- function(mod_str, data.group) {
   ##           catalog_file = TRUE)
 
   year_sum <- year_posteriors %>%
-    group_by(fYEAR, REPORT_YEAR, DATE) %>%
+    group_by(fZONE, fYEAR, REPORT_YEAR, DATE) %>%
     mean_median_hdci(value)
   ## for binomial models, make sure the upper limit maxes out a 1
   if (link_fun == "logit") {
@@ -674,7 +778,7 @@ get_model_posteriors <- function(mod_str, data.group) {
 
     yearcomp_sum <- yearcomp_posteriors |>
       ungroup() |>
-      group_by(YearComp) |>
+      group_by(fZONE, YearComp) |>
       dplyr::select(-.draw) |>
       summarise_draws(mean, median, HDInterval::hdi,
                       pl1 = ~ mean(.x < 0),
@@ -686,7 +790,7 @@ get_model_posteriors <- function(mod_str, data.group) {
       mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
       mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
       dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
-      arrange(desc(YearComp))
+      arrange(fZONE, desc(YearComp))
     saveRDS(yearcomp_sum, file = gsub("posteriors", "sum", yearcomp_posteriors_label))
   } else {
     yearcomp_posteriors_label <- ""
@@ -701,7 +805,7 @@ get_model_posteriors <- function(mod_str, data.group) {
 
     all_yearcomp_sum <- all_yearcomp_posteriors |>
       ungroup() |>
-      group_by(YearComp) |>
+      group_by(fZONE, YearComp) |>
       dplyr::select(-.draw) |>
       summarise_draws(mean, median, HDInterval::hdi,
                       pl1 = ~ mean(.x < 0),
@@ -713,13 +817,40 @@ get_model_posteriors <- function(mod_str, data.group) {
       mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
       mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
       dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
-      arrange(desc(YearComp))
+      arrange(fZONE, desc(YearComp))
     saveRDS(all_yearcomp_sum, file = gsub("posteriors", "sum", all_yearcomp_posteriors_label))
   } else {
     all_yearcomp_posteriors_label <- ""
     all_yearcomp_sum <- NULL
   }
 
+  ## MPA Zone comparisons
+  if (length(unique(year_posteriors$fZONE)) > 1) {
+    mpa_posteriors <- get_mpa_posteriors(newdata, year_posteriors)
+    mpa_posteriors_label <- gsub(".rds$", "_mpa_posteriors.rds", mod_str)
+    saveRDS(mpa_posteriors, file = mpa_posteriors_label)
+
+    mpa_sum <- mpa_posteriors |>
+      ungroup() |>
+      group_by(fYEAR, MPAComp) |>
+      dplyr::select(-.draw) |>
+      summarise_draws(mean, median, HDInterval::hdi,
+                      pl1 = ~ mean(.x < 0),
+                      pl2 = ~ mean(.x < 1),
+                      pg1 = ~ mean(.x > 0),
+                      pg2 = ~ mean(.x > 1)
+                      ) |>
+      ungroup() |>
+      mutate(Pl = ifelse(variable == "value", pl1, pl2)) |>
+      mutate(Pg = ifelse(variable == "value", pg1, pg2)) |>
+      dplyr::select(-pl1, -pl2, -pg1, -pg2) |>
+      arrange(fYEAR, desc(MPAComp))
+    saveRDS(mpa_sum, file = gsub("posteriors", "sum", mpa_posteriors_label))
+
+  } else {
+    mpa_posteriors_label <- ""
+    mpa_sum <- NULL
+  }
 
   return(list(year_group_posteriors = year_group_posteriors_label, #year_group_posteriors,
          year_group_sum = year_group_sum,
@@ -728,13 +859,15 @@ get_model_posteriors <- function(mod_str, data.group) {
          yearcomp_posteriors = yearcomp_posteriors_label, #yearcomp_posteriors,
          yearcomp_sum = yearcomp_sum,
          all_yearcomp_posteriors = all_yearcomp_posteriors_label, #all_yearcomp_posteriors,
-         all_yearcomp_sum = all_yearcomp_sum
+         all_yearcomp_sum = all_yearcomp_sum,
+         mpa_posteriors = mpa_posteriors_label, #mpa_posteriors,
+         mpa_sum = mpa_sum
          )
   )
 }
 get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = plogis) {
   newdata <- newdata |>
-    dplyr::select(fYEAR, fGROUP, REPORT_YEAR, DATE) |>
+    dplyr::select(fYEAR, fGROUP, fZONE, REPORT_YEAR, DATE) |>
     ## cbind(plogis(cellmeans)) %>%
     cbind(inv_link(cellmeans)) %>%
     ## rename_with(function(x) x <- "1", matches("plogis")) %>%
@@ -748,7 +881,7 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
   }
   newdata <- newdata |>
     droplevels() %>%
-    group_by(fYEAR, fGROUP, REPORT_YEAR, DATE, .draw) %>%
+    group_by(fYEAR, fGROUP, fZONE, REPORT_YEAR, DATE, .draw) %>%
     summarise(value = sum(value), .groups = "keep") %>%
     ungroup() |>
     ## if there are still NAs, replace with 0.  these NA values are for fGROUPs
@@ -758,7 +891,7 @@ get_year_group_posteriors <- function(newdata, cellmeans, replace_0, inv_link = 
 }
 get_year_posteriors <- function(newdata, cellmeans, replace_0, inv_link) {
   newdata <- newdata |>
-    dplyr::select(fYEAR,fGROUP, REPORT_YEAR, DATE) %>%
+    dplyr::select(fYEAR,fGROUP,fZONE, REPORT_YEAR, DATE) %>%
     ## cbind(plogis(cellmeans)) %>%
     cbind(inv_link(cellmeans)) %>%
     pivot_longer(cols = matches("[0-9]"), names_to = ".draw")
@@ -769,26 +902,28 @@ get_year_posteriors <- function(newdata, cellmeans, replace_0, inv_link) {
       dplyr::select(-Sum) %>%  droplevels()
   }
   newdata <- newdata |>
-    group_by(fYEAR,REPORT_YEAR, DATE, .draw) %>%
+    group_by(fZONE,fYEAR,REPORT_YEAR, DATE, .draw) %>%
     summarise(value = sum(value, na.rm = TRUE), .groups = "keep") %>%
     ungroup()
   newdata
 }
 get_yearcomp_posteriors <- function(newdata, year_posteriors) {
   yearcomp <- newdata %>%
-    tidyr::expand(fYEAR) %>%
+    tidyr::expand(fZONE, fYEAR) %>%
+    group_by(fZONE) |>
     mutate(fYEAR = paste0(first(fYEAR), "-" ,fYEAR)) %>%
     slice(-1) %>%
-    mutate(fYEAR = factor(fYEAR, levels = fYEAR))
+    mutate(fYEAR = factor(fYEAR, levels = fYEAR)) |>
+    ungroup()
   if (nrow(yearcomp) == 0) {
     yearcomp_posteriors <- newdata %>%
-      tidyr::expand(fYEAR) %>%
+      tidyr::expand(fZONE, fYEAR, variable = c("value","frac")) %>%
       rename(YearComp = fYEAR) %>%
-      mutate(variable = c("value","frac"), mean = NA, median = NA,
-             lower = NA, upper = NA, Pl = NA, Pg = NA)
+      mutate(mean = NA, median = NA,
+        lower = NA, upper = NA, Pl = NA, Pg = NA)
   } else {
     yearcomp_posteriors <-  year_posteriors |>
-      group_by(.draw) |>
+      group_by(fZONE, .draw) |>
       ## reframe(
       summarise(
         frac = exp(as.vector(as.vector(log(value)) %*%
@@ -798,7 +933,7 @@ get_yearcomp_posteriors <- function(newdata, year_posteriors) {
         YearComp = paste0(first(fYEAR), "-", fYEAR[-1]),
         .groups = "keep"
         ) |>
-      dplyr::select(YearComp, .draw, value, frac)
+      dplyr::select(fZONE, YearComp, .draw, value, frac)
   }
   return(yearcomp_posteriors)
 }
@@ -807,13 +942,13 @@ get_all_yearcomp_posteriors <- function(newdata, year_posteriors) {
   xmat <- emmeans:::tukey.emmc(years)
   if (length(years) == 0) {
     all_yearcomp_posteriors <- newdata %>%
-      tidyr::expand(fYEAR) %>%
+      tidyr::expand(fZONE, fYEAR, variable = c("value","frac")) %>%
       rename(YearComp = fYEAR) %>%
-      mutate(variable = c("value","frac"), mean = NA, median = NA,
-             lower = NA, upper = NA, Pl = NA, Pg = NA)
+      mutate(mean = NA, median = NA,
+        lower = NA, upper = NA, Pl = NA, Pg = NA)
   } else {
     all_yearcomp_posteriors <-  year_posteriors |>
-      group_by(.draw) |>
+      group_by(fZONE, .draw) |>
       ## reframe(
       summarise(
         frac = exp(as.vector(as.vector(log(value)) %*% as.matrix(xmat))),
@@ -821,10 +956,26 @@ get_all_yearcomp_posteriors <- function(newdata, year_posteriors) {
         YearComp = names(xmat),
         .groups = "keep"
         ) |>
-      dplyr::select(YearComp, .draw, value, frac)
+      dplyr::select(fZONE, YearComp, .draw, value, frac)
   }
   return(all_yearcomp_posteriors)
 }
+get_mpa_posteriors <- function(newdata, year_posteriors) {
+  zones <- levels(newdata$fZONE)
+  xmat <- emmeans:::tukey.emmc(zones)
+    mpa_posteriors <-  year_posteriors |>
+      group_by(fYEAR, .draw) |>
+      ## reframe(
+      summarise(
+        frac = exp(as.vector(as.vector(log(value)) %*% as.matrix(xmat))),
+        value = as.vector(as.vector(value) %*% as.matrix(xmat)),
+        MPAComp = names(xmat),
+        .groups = "keep"
+        ) |>
+      dplyr::select(fYEAR, MPAComp, .draw, value, frac)
+  return(mpa_posteriors)
+}
+
 mean_median_hdci <- function(.data, ...) {
   ## groups = group_vars(.data)
   ## print(class(groups))
@@ -862,11 +1013,11 @@ ltmp_compare_models <- function(dat, model_lookup) {
       ##       else .x
       ## )() |>
       mutate(label = str_replace(label, paste0(family_type, "_"), "")) |>
-      dplyr::select(VARIABLE, sub_model, splits, label, raw_sum, compare_models, ylab, scale, selected) |>
+      dplyr::select(VARIABLE, sub_model, splits, label, raw_sum, compare_models, zoning, ylab, scale, selected) |>
       unnest(c(compare_models)) |>
       ## group_by(VARIABLE, sub_model, splits, label, raw_sum, ylab, scale) |>
       ## group_by(VARIABLE, sub_model, splits, ylab, scale) |>
-      group_by(VARIABLE, sub_model, splits, ylab) |>
+      group_by(VARIABLE, sub_model, splits, zoning, ylab) |>
       nest() |>
       ## mutate(gg = future_pmap(.l = list(data, raw_sum, label, ylab, scale),
       mutate(gg = future_pmap(.l = list(data, ylab),
@@ -897,16 +1048,17 @@ ltmp_compare_models <- function(dat, model_lookup) {
                          ## yscale <- lookup$scale[[1]]
                          gg <-
                            data |> ggplot(aes(x = REPORT_YEAR, y = median)) +
-                           geom_ribbon(aes(ymin = lower, ymax = upper),
-                                       fill = "orange", alpha = 0.3) +
-                           geom_line(aes(group = family_type, colour = family_type)) +
+                           geom_ribbon(aes(ymin = lower, ymax = upper, fill = fZONE),
+                                       alpha = 0.3) +
+                           ## geom_line(aes(group = family_type, colour = fZONE)) +
+                           geom_line(aes(colour = fZONE)) +
                            geom_point()  +
                            geom_line(data = raw_sum,
                                      aes(y = Mean, x = as.numeric(as.character(fYEAR)),
-                                         colour = "Raw mean")) +
+                                         colour = "Raw mean", linetype = fZONE)) +
                            geom_line(data = raw_sum,
                                      aes(y = Median, x = as.numeric(as.character(fYEAR)),
-                                         colour = "Raw median")) +
+                                         colour = "Raw median", linetype = fZONE)) +
                            facet_wrap(~family_type, scales = "free_y") +
                            ggtitle(str_replace_all(lab, "_", " ")) +
                            scale_y_continuous(ylab, label = yscale) +
@@ -923,7 +1075,7 @@ ltmp_compare_models <- function(dat, model_lookup) {
     dat_compare
   },
   stage_ = 4,
-  order_ = 13,
+  order_ = 17,
   name_ = "Compare models",
   item_ = "compare_models"
   )
@@ -1016,12 +1168,259 @@ ltmp_group_compare_models <- function(dat, model_lookup) {
     }
   },
   stage_ = 4,
-  order_ = 13,
+  order_ = 18,
   name_ = "Compare group models",
   item_ = "compare_group_models"
   )
   return(dat_group_compare)
 }
+
+ltmp_partial_summary_plots <- function(dat, model_lookup) {
+  status::status_try_catch(
+  {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    dat_partial_plots <-
+      dat |>
+      left_join(model_lookup |>
+                  dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+        by = c("VARIABLE", "model_type", "family_type")) |>
+      mutate(compare_models =
+               future_map2(.x = posteriors, .y = family_type,
+                 .f = ~ {
+                   if (is.null(.x)) return(NULL)
+                   .x$year_sum |>
+                     mutate(family_type = .y)
+                 }
+               )) |>
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |>
+      dplyr::select(VARIABLE, sub_model, splits, label, raw_sum, compare_models, zoning, ylab, scale, selected) |>
+      unnest(c(compare_models)) |>
+      group_by(VARIABLE, sub_model, splits, zoning, ylab) |>
+      nest() |>
+      mutate(gg = future_pmap(.l = list(data, ylab),
+        .f =  ~ {
+          data <- ..1
+          lab <- unique(data$label)
+          ylab <- ..2 #..4
+          yscale <- unique(data$scale)[[1]] #..5
+
+          data <- data |>
+            filter(selected == TRUE | selected == 1) |>
+            droplevels()
+          gg <-
+            data |>
+            ggplot(aes(x = REPORT_YEAR, y = median,
+              shape = fZONE, fill = fZONE, linetype = fZONE)) +
+            geom_pointrange(aes(ymin = lower, ymax = upper), linetype = 1, show.legend = FALSE) +
+            ## geom_linetrange(aes(ymin = lower, ymax = upper,
+            ##   fill = fZONE, linetype = fZONE)) +
+            geom_line(linewidth = 0.5) +
+            geom_point(size = 1.5)  +
+            scale_y_continuous(ylab, label = yscale) +
+            theme_classic() +
+            theme(axis.title.x = element_blank(),
+              axis.title.y = element_text(vjust = 1.5),
+              axis.ticks.length.x = unit(2.75, units = "points"),
+              axis.minor.ticks.length.x = rel(0.75),
+              axis.line.y = element_line(),
+              axis.line.x = element_line()
+            ) +
+            guides(x = guide_axis(minor.ticks = TRUE)) +
+            scale_x_continuous('',
+              breaks = scales::breaks_width(5),
+              minor_breaks = scales::breaks_width(1),
+              expand = c(0, 0.5)
+            )
+          if (length(unique(data$fZONE)) == 1) {
+            gg <- gg +
+            scale_fill_manual("Zone",
+              breaks = c("Total"),
+              labels = c("Total"),
+              values = c("black")) +
+            scale_shape_manual("Zone",
+              breaks = c("Total"),
+              labels = c("Total"),
+              values = c(21)) +
+            scale_linetype_manual("Zone",
+              breaks = c("Total"),
+              labels = c("Total"),
+              values = c(1)) +
+              guides(fill = "none", shape = "none", linetype = "none")
+          } else {
+            gg <- gg +
+              scale_fill_manual("Zone",
+                breaks = c("C", "O"),
+                labels = c("Reserve", "Non-reserve"),
+                values = c("black", "white")) +
+              scale_shape_manual("Zone",
+                breaks = c("C", "O"),
+                labels = c("Reserve", "Non-reserve"),
+                values = c(21, 21)) +
+              scale_linetype_manual("Zone",
+                breaks = c("C", "O"),
+                labels = c("Reserve", "Non-reserve"),
+                values = c(1, 2))
+          }
+          filenm <- paste0(FIGURES_PATH, "", "gg_partial_", lab, ".png")
+          ggsave(filename = filenm, plot = gg, width = 6, height = 3)
+          filenm
+        }
+      ))
+    dat_partial_plots
+  },
+  stage_ = 4,
+  order_ = 18,
+  name_ = "Partial plots",
+  item_ = "partial_plots"
+  )
+  return(dat_partial_plots)
+}
+
+pretty_major_breaks <- function(limits) {
+  major_breaks <- case_when(
+    max(limits) > 12 ~ list(c(0.1, 0.4, 1, 3, 11)),
+    max(limits) > 9 ~ list(c(0.125, 0.25, 0.5, 1, 2, 4, 8)),
+    max(limits) > 1 ~ list(c(0.25, 0.5, 1, 2, 4)),
+    max(limits) <= 1 ~ list(c(0.8, 0.9, 1, 1.1, 1.25)),
+    .default =  list(1)
+  )
+  return(major_breaks[[1]])
+}
+pretty_minor_breaks <- function(limits) {
+  minor_breaks <- seq(0, round(max(limits)), by = 1)
+
+  return(c(1/minor_breaks, minor_breaks))
+}
+
+ltmp_mpa_summary_plots <- function(dat, model_lookup) {
+  status::status_try_catch(
+  {
+    if (status::get_setting("data_from") == "AWS") return(NULL)
+    plan(multicore, workers = parallelly::availableCores() - 1)
+    dat_mpa_plots <-
+      dat |>
+      left_join(model_lookup |>
+                  dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
+        by = c("VARIABLE", "model_type", "family_type")) |>
+      mutate(mpa_contrasts =
+               future_map2(.x = posteriors, .y = family_type,
+                 .f = ~ {
+                   if (is.null(.x)) return(NULL)
+                   if (is.null(.x$mpa_sum)) return(NULL)
+                   .x$mpa_sum |>
+                     mutate(family_type = .y)
+                 }
+               )) |>
+      mutate(label = str_replace(label, paste0(family_type, "_"), "")) |>
+      dplyr::select(VARIABLE, sub_model, splits, label, mpa_contrasts, zoning, ylab, scale, selected) |>
+      unnest(c(mpa_contrasts)) |>
+      filter(variable == "frac") |>
+      droplevels() |>
+      group_by(VARIABLE, sub_model, splits, zoning, ylab) |>
+      nest() |>
+      mutate(gg = future_pmap(.l = list(data, ylab),
+        .f =  ~ {
+          data <- ..1
+          lab <- unique(data$label)
+          ylab <- ..2 #..4
+          yscale <- unique(data$scale)[[1]] #..5
+
+          data <- data |>
+            filter(selected == TRUE | selected == 1) |>
+            droplevels() |>
+            mutate(diff = case_when(
+              Pl > 0.90 ~ "lower",
+              Pg > 0.90 ~ "higher",
+              .default = "no diff")) |>
+            mutate(diff = factor(diff))
+          max_diff <- data |>
+            summarise(max = max(upper, na.rm = TRUE),
+              min = min(lower, na.rm = TRUE)) |>
+            mutate(max_diff = max(max, 1/min)) |>
+            pull(max_diff)
+          if (max_diff > 20) max_diff <- 20
+          custom_colours <- c("higher" = "blue", "lower" = "red", "no diff" = "gray")
+
+          gg <-
+            data |>
+            ggplot(aes(y = fYEAR, x = median)) +
+            geom_vline(xintercept = 1, linetype = "dashed") +
+            geom_pointrange(aes(xmin = lower, xmax = upper, color = diff), size = 0.5,
+              show.legend = TRUE) +
+            scale_y_discrete('', limits = rev) +
+            scale_x_continuous("Percentage difference (Reserve vs Non-reserve)",
+              trans = scales::log2_trans(),
+              label = \(x) sprintf("%0.1f", 100*(x - 1)),
+              limit = c(1/max_diff, max_diff),
+              breaks = pretty_major_breaks,
+              minor_breaks = pretty_minor_breaks
+            ) +
+            scale_colour_manual(
+              name = "",
+              labels = c("higher", "lower", "not different"),
+              values = custom_colours,
+              limits = names(custom_colours),
+              drop = FALSE) +
+            theme_classic() +
+            theme(
+              strip.background = element_blank(),
+              strip.text = element_text(size = 10),
+              axis.title.y = element_text(vjust = 1.5),
+              axis.ticks.length.x = unit(2.75, units = "points"),
+              axis.minor.ticks.length.x = rel(0.75),
+              panel.spacing = unit(1, unit = "lines"),
+              axis.line.y = element_line(),
+              axis.line.x = element_line(),
+              strip.placement = "outside"
+            ) +
+            guides(x = guide_axis(minor.ticks = TRUE))
+
+          ## if (length(unique(data$fZONE)) == 1) {
+          ##   gg <- gg +
+          ##   scale_fill_manual("Zone",
+          ##     breaks = c("Total"),
+          ##     labels = c("Total"),
+          ##     values = c("black")) +
+          ##   scale_shape_manual("Zone",
+          ##     breaks = c("Total"),
+          ##     labels = c("Total"),
+          ##     values = c(21)) +
+          ##   scale_linetype_manual("Zone",
+          ##     breaks = c("Total"),
+          ##     labels = c("Total"),
+          ##     values = c(1)) +
+          ##     guides(fill = "none", shape = "none", linetype = "none")
+          ## } else {
+          ##   gg <- gg +
+          ##     scale_fill_manual("Zone",
+          ##       breaks = c("C", "O"),
+          ##       labels = c("Reserve", "Non-reserve"),
+          ##       values = c("black", "white")) +
+          ##     scale_shape_manual("Zone",
+          ##       breaks = c("C", "O"),
+          ##       labels = c("Reserve", "Non-reserve"),
+          ##       values = c(21, 21)) +
+          ##     scale_linetype_manual("Zone",
+          ##       breaks = c("C", "O"),
+          ##       labels = c("Reserve", "Non-reserve"),
+          ##       values = c(1, 2))
+          ## }
+          filenm <- paste0(FIGURES_PATH, "", "gg_zoning_", lab, ".png")
+          ggsave(filename = filenm, plot = gg, width = 6, height = 3)
+          filenm
+        }
+      ))
+    dat_mpa_plots
+  },
+  stage_ = 4,
+  order_ = 19,
+  name_ = "MPA plots",
+  item_ = "mpa_plots"
+  )
+  return(dat_mpa_plots)
+}
+
 
 
 ltmp_raw_summary_plots <- function(dat, model_lookup) {
@@ -1030,7 +1429,7 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
     if (status::get_setting("data_from") == "AWS") return(NULL)
     plan(multicore, workers = parallelly::availableCores() - 1)
     ## future:set.seed(TRUE)
-    raw_plots <-
+   raw_plots <-
       dat  |>
       left_join(model_lookup |>
                 dplyr::select(VARIABLE, model_type, family_type, ylab, scale),
@@ -1070,26 +1469,26 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                                if (resp == "COUNT") {
                                  dg <-
                                    data_group |>
-                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   group_by(fZONE, REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
                                    summarise(value = sum(PERC_COVER), .groups = "keep") |>
                                    ungroup()
                                } else if (resp == "ABUNDANCE" & data_method == "fish") {
                                  dg <-
                                    data_group |>
-                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   group_by(fZONE, REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
                                    summarise(value = sum(ABUNDANCE), .groups = "keep") |>
                                    ungroup()
                                } else if (resp == "ABUNDANCE" & data_method == "juveniles") {
                                  dg <-
                                    data_group |>
-                                   group_by(REPORT_YEAR, REEF, fDEPTH, SITE_NO) |>
+                                   group_by(fZONE, REPORT_YEAR, REEF, fDEPTH, SITE_NO) |>
                                    summarise(value = sum(ABUNDANCE / AVAILABLE_SUBSTRATE),
                                             .groups = "keep" ) |>
                                    ungroup()
                                } else if (resp == "Biomass") {
                                  dg <-
                                    data_group |>
-                                   group_by(REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
+                                   group_by(fZONE, REPORT_YEAR, REEF, fDEPTH, TRANSECT_NO) |>
                                    summarise(value = sum(Biomass), .groups = "keep") |>
                                    ungroup()
                                }
@@ -1097,7 +1496,7 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                              } else {  ## manta
                                dg <-
                                  data_group |>
-                                 group_by(REPORT_YEAR, REEF, fDEPTH) |>
+                                 group_by(fZONE, REPORT_YEAR, REEF, fDEPTH) |>
                                  summarise(value = mean(Cover), .groups = "keep") |>
                                  mutate(TRANSECT_NO = NA) |>
                                  ungroup()
@@ -1106,15 +1505,17 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                                gg <-
                                  dg |>
                                  ggplot(aes(x = REPORT_YEAR, y = value)) +
-                                 geom_line(aes(color = paste0(fDEPTH, SITE_NO)),
+                                 geom_line(aes(color = paste0(fDEPTH, SITE_NO), linetype = fZONE),
                                            show.legend = FALSE) +
                                  geom_line(data = raw_sum,
-                                           aes(y = Mean,
-                                               x = as.numeric(as.character(fYEAR)))) +
+                                   aes(y = Mean,
+                                     x = as.numeric(as.character(fYEAR)),
+                                     linetype = fZONE)) +
                                  geom_line(data = raw_sum,
-                                           aes(y = Median,
-                                               x = as.numeric(as.character(fYEAR))),
-                                           linetype = "dashed") +
+                                   aes(y = Median,
+                                     x = as.numeric(as.character(fYEAR)),
+                                     linetype = fZONE),
+                                   color = "gray") +
                                  scale_y_continuous(ylab, label = yscale) +
                                  scale_x_continuous("") +
                                  facet_wrap(~REEF) +
@@ -1123,15 +1524,18 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
                                gg <-
                                  dg |>
                                  ggplot(aes(x = REPORT_YEAR, y = value)) +
-                                 geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO)),
-                                           show.legend = FALSE) +
+                                 geom_line(aes(color = paste0(fDEPTH, TRANSECT_NO),
+                                   linetype = fZONE),
+                                   show.legend = FALSE) +
                                  geom_line(data = raw_sum,
-                                           aes(y = Mean,
-                                               x = as.numeric(as.character(fYEAR)))) +
+                                   aes(y = Mean,
+                                     x = as.numeric(as.character(fYEAR)),
+                                     linetype = fZONE)) +
                                  geom_line(data = raw_sum,
-                                           aes(y = Median,
-                                               x = as.numeric(as.character(fYEAR))),
-                                           linetype = "dashed") +
+                                   aes(y = Median,
+                                     x = as.numeric(as.character(fYEAR)),
+                                     linetype = fZONE),
+                                   color = "gray") +
                                  scale_y_continuous(ylab, label = yscale) +
                                  scale_x_continuous("") +
                                  facet_wrap(~REEF) +
@@ -1146,7 +1550,7 @@ ltmp_raw_summary_plots <- function(dat, model_lookup) {
     raw_plots
   },
   stage_ = 4,
-  order_ = 14,
+  order_ = 19,
   name_ = "Raw summary plots",
   item_ = "raw_summary_plots"
   )
@@ -1263,7 +1667,7 @@ ltmp_raw_group_summary_plots <- function(dat, model_lookup) {
     raw_group_plots
   },
   stage_ = 4,
-  order_ = 14,
+  order_ = 20,
   name_ = "Raw group summary plots",
   item_ = "raw_group_summary_plots"
   )
@@ -1279,7 +1683,7 @@ ltmp_choose_model <- function(dat) {
       seq_along(x) == which.min(x)
     }
     comp <- dat |>
-      group_by(model_type, .add = TRUE) |>
+      group_by(zoning, model_type, .add = TRUE) |>
       mutate(SS = pmap(.l = list(raw_sum, posteriors, model_type),
                        .f = ~ {
                          model_type <- ..3
@@ -1294,13 +1698,13 @@ ltmp_choose_model <- function(dat) {
                        }
                        )) |>
       unnest(SS) |>
-      group_by(splits, .add = TRUE) |>
+      group_by(zoning, splits, .add = TRUE) |>
       mutate(selected = is_first_min(SS2)) |>   ## go with the mean as it will be sensitive to waky upper CI's
-      ungroup(model_type, splits)
+      ungroup(model_type, zoning, splits)
     comp
   },
   stage_ = 4,
-  order_ = 12,
+  order_ = 16,
   name_ = "Select best model",
   item_ = "select_model"
   )
@@ -1390,15 +1794,15 @@ ltmp_raw_data_summaries_juv <- function(dat) {
                              data_group <- .x
                              data_group |>
                                mutate(cover = ABUNDANCE / AVAILABLE_SUBSTRATE) |>
-                               group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, fYEAR) |>
+                               group_by(REEF, REEF_ZONE, fDEPTH, SITE_NO, fYEAR, fZONE) |>
                                summarise(cover = sum(cover), .groups = "keep") |>
                                ungroup() |>
-                               group_by(REEF, fYEAR) |>
+                               group_by(fZONE, REEF, fYEAR) |>
                                summarise(Mean = mean(cover),
                                          Median = median(cover),
                                          .groups = "keep") |>
                                ungroup() |>
-                               group_by(fYEAR) |>
+                               group_by(fZONE, fYEAR) |>
                                summarise(Mean = mean(Mean),
                                          Median = median(Median),
                                          .groups = "keep") |>
@@ -1630,12 +2034,12 @@ ltmp_raw_data_summaries_manta <- function(dat) {
                            .f =  ~ {
                              data_group <- .x
                              data_group |>
-                               group_by(REEF, fYEAR) |>
+                               group_by(fZONE, REEF, fYEAR) |>
                                summarise(Mean = mean(Cover),
                                          Median = median(Cover),
                                          .groups = "keep") |>
                                ungroup() |>
-                               group_by(fYEAR) |>
+                               group_by(fZONE, fYEAR) |>
                                summarise(Mean = mean(Mean),
                                          Median = median(Median),
                                          .groups = "keep") |>
@@ -1737,7 +2141,7 @@ ltmp_get_formula_fish <- function(data) {
     data
   },
   stage_ = 4,
-  order_ = 2,
+  order_ = 3,
   name_ = "Make fish formula",
   item_ = "make_formula_fish"
   )
@@ -1786,7 +2190,7 @@ ltmp_raw_data_summaries_fish <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 9,
+  order_ = 10,
   name_ = "Raw summaries",
   item_ = "raw_sum_fish"
   )
@@ -1826,7 +2230,7 @@ ltmp_fit_inla_fish <- function(dat) {
     dat
   },
   stage_ = 4,
-  order_ = 11,
+  order_ = 13,
   name_ = "Fit models",
   item_ = "fit_models_fish"
   )
