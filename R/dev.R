@@ -21,6 +21,34 @@ source("ltmp_startup_functions.R")
 args = c(
   "R",
   "Rscript",
+  "--file=manta_cover.R",                            ##the name of the target script
+  "--path=/data/manta/2021-01-14/process/ALL/2024/Burdekin/nrm/Burdekin/raw/reef_data.zip",
+  "--method=manta",
+  "--domain=Burdekin",
+  "--scale=nrm",
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false",                           ##whether to refresh all the data
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
+  "--file=manta_cover.R",                            ##the name of the target script
+  "--path=/data/manta/2021-01-14/process/ALL/2024/Fitzroy/nrm/Fitzroy/raw/reef_data.zip",
+  "--method=manta",
+  "--domain=Fitzroy",
+  "--scale=nrm",
+  "--status=true",                                  ##whether to show full status
+  "--refresh_data=false",                           ##whether to refresh all the data
+  "--data_path=/data/",
+  "--output_path=/output/"
+)
+
+args = c(
+  "R",
+  "Rscript",
   "--file=00_main.R",
   "--path=/data/photo-transect/2021-01-14/process/ALL/2024/ALL/reef/Aquila Island/raw/reef_data.zip",
   "--method=photo-transect",
